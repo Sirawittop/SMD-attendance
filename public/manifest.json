@@ -1,0 +1,18 @@
+{
+  "name": "ระบบเช็คชื่อนักเรียน ม.ด.",
+  "short_name": "เช็คชื่อ ม.ด.",
+  "description": "ระบบบันทึกและติดตามการเช็คชื่อเข้าเรียนของนักเรียน โรงเรียนมัธยมดีเด่น",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fff7ed",
+  "theme_color": "#f97316",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

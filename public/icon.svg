@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <circle cx="256" cy="256" r="240" fill="#f97316"/>
+  <!-- Graduation cap drawing -->
+  <path d="M256 120 L400 180 L256 240 L112 180 Z" fill="#ffffff" />
+  <path d="M160 210 L160 300 C160 340, 352 340, 352 300 L352 210" fill="none" stroke="#ffffff" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M360 195 L360 340 L370 340" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="370" cy="345" r="10" fill="#ffffff" />
+</svg>
