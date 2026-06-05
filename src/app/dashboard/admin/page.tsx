@@ -131,7 +131,14 @@ export default function AdminPage() {
 
   // Modals & Forms
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [newStudent, setNewStudent] = useState({ studentId: "", name: "", number: "" });
+  const [newStudent, setNewStudent] = useState({
+    studentId: "",
+    name: "",
+    number: "",
+    classroom: "2/1",
+  });
+
+
 
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
@@ -374,15 +381,25 @@ export default function AdminPage() {
   };
 
   // Trigger manual add
-  const handleManualAddSubmit = (e: React.FormEvent) => {
+  const handleManualAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canEditCurrentView) {
       showToast("โหมดแสดงผลรวมทุกห้องเป็นแบบอ่านอย่างเดียว กรุณาสลับกลับไปโหมดรายห้องเพื่อแก้ไข", "warning");
       return;
     }
-    if (!newStudent.studentId || !newStudent.name || !newStudent.number) {
+
+    if (!newStudent.studentId || !newStudent.name || !newStudent.number || !newStudent.classroom) {
       showToast("กรุณากรอกข้อมูลให้ครบทุกช่อง", "warning");
       return;
+    }
+
+    const targetClassroom = newStudent.classroom;
+
+    // If user picked another classroom, switch UI to that room before mutating local table
+    if (targetClassroom !== selectedClassroom) {
+      setSelectedClassroom(targetClassroom);
+      // Ensure local table is for the right classroom
+      await loadStudents();
     }
 
     const sNum = parseInt(newStudent.number, 10);
@@ -392,18 +409,26 @@ export default function AdminPage() {
       number: isNaN(sNum) ? 99 : sNum,
     };
 
-    // Check duplicate ID in local memory
-    if (classroomStudents.some((s) => s.studentId === item.studentId)) {
-      showToast(`รหัสนักเรียน ${item.studentId} ซ้ำกับในตาราง`, "error");
+    // Check duplicate ID in local memory (for the target classroom)
+    if (classroomStudents.some((s) => String(s.studentId).trim() === item.studentId)) {
+      showToast(`รหัสนักเรียน ${item.studentId} ซ้ำกับในตารางห้อง ${targetClassroom}`, "error");
       return;
     }
 
     const updated = [...classroomStudents, item].sort((a, b) => a.number - b.number);
     setClassroomStudents(updated);
-    setNewStudent({ studentId: "", name: "", number: "" });
+
+    setNewStudent({
+      studentId: "",
+      name: "",
+      number: "",
+      classroom: targetClassroom,
+    });
+
     setIsAddOpen(false);
-    showToast("เพิ่มนักเรียนชั่วคราวลงในตารางแล้ว (กดบันทึกเพื่อบันทึกจริง)", "success");
+    showToast("เพิ่มนักเรียนชั่วคราวลงในตารางของห้องที่เลือกแล้ว (กดบันทึกเพื่อบันทึกจริง)", "success");
   };
+
 
   // Trigger single delete (direct server delete + reload)
   const confirmDelete = async () => {
@@ -759,6 +784,43 @@ export default function AdminPage() {
         title="เพิ่มนักเรียนแบบระบุเอง"
       >
         <form onSubmit={handleManualAddSubmit} className="space-y-4">
+          <Select
+            label="เลือกชั้น"
+            value={newStudent.classroom ? newStudent.classroom.split("/")[0] : ""}
+            onChange={(e) => {
+              const level = e.target.value;
+              const levelNum = level ? Number(level) : 2;
+              const fallbackRoom = `${levelNum}/${1}`;
+              const nextClassroom =
+                CLASSROOMS.includes(fallbackRoom as any)
+                  ? fallbackRoom
+                  : CLASSROOMS.filter((c) => c.startsWith(`${levelNum}/`))[0] || "2/1";
+              setNewStudent({ ...newStudent, classroom: nextClassroom });
+            }}
+
+            options={[
+              { value: "2", label: "ชั้น 2" },
+              { value: "3", label: "ชั้น 3" },
+              { value: "4", label: "ชั้น 4" },
+              { value: "5", label: "ชั้น 5" },
+              { value: "6", label: "ชั้น 6" },
+            ]}
+          />
+
+          <Select
+            label="เลือกห้อง"
+            value={newStudent.classroom}
+            onChange={(e) => setNewStudent({ ...newStudent, classroom: e.target.value })}
+            options={CLASSROOMS.filter((c) => {
+              const level = newStudent.classroom?.split("/")[0] || "2";
+              return c.startsWith(`${level}/`);
+            }).map((c) => ({
+              value: c,
+              label: `ห้องเรียน ${c}`,
+            }))}
+          />
+
+
           <Input
             label="รหัสประจำตัวนักเรียน"
             placeholder="เช่น 1001"
@@ -772,7 +834,7 @@ export default function AdminPage() {
             onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })}
           />
           <Input
-            label="เลขที่ (ที่นั่ง)"
+            label="เลขที่"
             placeholder="เช่น 1"
             type="number"
             value={newStudent.number}
@@ -789,6 +851,7 @@ export default function AdminPage() {
           </div>
         </form>
       </Dialog>
+
 
       {/* Delete confirmation dialog */}
       <Dialog
