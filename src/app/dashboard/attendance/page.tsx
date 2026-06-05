@@ -241,7 +241,7 @@ export default function AttendancePage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-orange-950 flex items-center gap-2">
-            <ClipboardCheck className="h-6 w-6 text-orange-600" /> เช็คชื่อนักเรียนเข้าแถว
+            <ClipboardCheck className="h-6 w-6 text-orange-600" /> เช็คชื่อนักเรียน
           </h2>
           <p className="text-gray-500 text-sm mt-1">
             โรงเรียนสาธิตมหาวิทยาลัยขอนแก่น ฝ่ายมัธยมศึกษา มอดินแดง

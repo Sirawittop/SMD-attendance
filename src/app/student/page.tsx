@@ -140,7 +140,7 @@ export default function StudentPortalPage() {
           <GraduationCap className="h-8 w-8 text-orange-600" />
           <div>
             <h1 className="font-bold text-orange-950 text-base">ระบบสืบค้นข้อมูลนักเรียน</h1>
-            <p className="text-[10px] text-gray-500 font-semibold">ค้นหาประวัติการเช็คชื่อเข้าเรียน</p>
+            <p className="text-[10px] text-gray-500 font-semibold">ค้นหาประวัติการเช็คชื่อ</p>
           </div>
         </div>
         <button

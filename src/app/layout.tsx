@@ -14,20 +14,16 @@ const sarabun = Sarabun({
 
 export const metadata: Metadata = {
   title: "ระบบเช็คชื่อนักเรียน - SMD Attendance System",
-  description: "ระบบบันทึกและติดตามการเช็คชื่อเข้าเรียนของนักเรียน",
+  description: "ระบบบันทึกและติดตามการเช็คชื่อนักเรียน",
   manifest: "/manifest.json",
-  icons: {
-    icon: [
-      { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
-      { url: "/icon-512.png", type: "image/png", sizes: "512x512" },
-      { url: "/icon.svg", type: "image/svg+xml", sizes: "any" },
-    ],
-    apple: "/apple-touch-icon.png",
-  },
+ icons: {
+  icon: "/smdlogo.png",
+  apple: "/smdlogo.png",
+},
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "เช็คชื่อ ม.ด.",
+    title: "SMD Attendance System",
   },
 };
 
