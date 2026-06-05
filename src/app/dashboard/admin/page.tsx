@@ -125,6 +125,13 @@ export default function AdminPage() {
   const [classroomStudents, setClassroomStudents] = useState<Student[]>([]);
   const [allStudents, setAllStudents] = useState<Array<Student & { classroom: string }>>([]);
 
+  // Excel preview modal
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewByClassroom, setPreviewByClassroom] = useState<Record<string, Student[]>>({});
+  const [previewSkippedSheets, setPreviewSkippedSheets] = useState<string[]>([]);
+  const [previewEmptySheets, setPreviewEmptySheets] = useState<string[]>([]);
+
+
 
   // Settings
   const [spreadsheetUrl, setSpreadsheetUrl] = useState<string>("");
@@ -223,121 +230,104 @@ export default function AdminPage() {
   const displayedStudents = viewMode === "all" ? allStudents : classroomStudents;
   const canEditCurrentView = viewMode === "classroom";
 
+  const parseExcelFileForPreview = async (file: File): Promise<{
+    importedByClassroom: Record<string, Student[]>;
+    skippedSheets: string[];
+    emptySheets: string[];
+  }> => {
+    const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onerror = () => {
+        reject(new Error("Failed to read file"));
+      };
+
+      reader.onload = () => {
+        const result = reader.result;
+        if (!(result instanceof ArrayBuffer)) {
+          reject(new Error("Invalid file data"));
+          return;
+        }
+        resolve(result);
+      };
+
+      reader.readAsArrayBuffer(file);
+    });
+
+    const workbook = XLSX.read(arrayBuffer, { type: "array" });
+
+    const importedMap = new Map<string, Student[]>();
+    const skippedSheets: string[] = [];
+    const emptySheets: string[] = [];
+
+    workbook.SheetNames.forEach((sheetName) => {
+      const classroom = normalizeSheetNameToClassroom(sheetName);
+      if (!classroom) {
+        skippedSheets.push(sheetName);
+        return;
+      }
+
+      const sheet = workbook.Sheets[sheetName];
+      const aoa: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+      if (aoa.length < 2) {
+        emptySheets.push(sheetName);
+        return;
+      }
+
+      const headerMap = buildHeaderMap(aoa[0] || []);
+      const rows = aoa.slice(1);
+      const parsedStudents = rows
+        .map((row, index) => {
+          const rowObj: Record<string, any> = {};
+          row.forEach((cellValue, cellIndex) => {
+            rowObj[XLSX.utils.encode_col(cellIndex)] = cellValue;
+          });
+
+          // Preserve named headers when available, but always keep A:D access as fallback.
+          (aoa[0] || []).forEach((header, cellIndex) => {
+            if (!header) return;
+            rowObj[String(header)] = row[cellIndex];
+          });
+
+          return parseExcelRow(rowObj, index + 1, headerMap);
+        })
+        .filter((item): item is Student => Boolean(item))
+        .sort((a, b) => a.number - b.number);
+
+      if (parsedStudents.length > 0) {
+        importedMap.set(classroom, parsedStudents);
+      } else {
+        emptySheets.push(sheetName);
+      }
+    });
+
+    if (importedMap.size === 0) {
+      throw new Error("ไม่พบ sheet ห้องเรียนที่รองรับในไฟล์นี้");
+    }
+
+    const importedByClassroom: Record<string, Student[]> = {};
+    for (const [cls, list] of importedMap.entries()) {
+      importedByClassroom[cls] = list;
+    }
+
+    return { importedByClassroom, skippedSheets, emptySheets };
+  };
+
   const processExcelFile = async (file: File): Promise<void> => {
     if (loading) return;
 
     setLoading(true);
-
-    // If multiple uploads happen in quick succession, ensure we don't leave the UI in a drag state.
     setDragActive(false);
 
-
     try {
-      const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
-        const reader = new FileReader();
-
-        reader.onerror = () => {
-          reject(new Error("Failed to read file"));
-        };
-
-        reader.onload = () => {
-          const result = reader.result;
-          if (!(result instanceof ArrayBuffer)) {
-            reject(new Error("Invalid file data"));
-            return;
-          }
-          resolve(result);
-        };
-
-        reader.readAsArrayBuffer(file);
-      });
-
-      const workbook = XLSX.read(arrayBuffer, { type: "array" });
-
-      const importedByClassroom = new Map<string, Student[]>();
-      const skippedSheets: string[] = [];
-      const emptySheets: string[] = [];
-
-      workbook.SheetNames.forEach((sheetName) => {
-        const classroom = normalizeSheetNameToClassroom(sheetName);
-        if (!classroom) {
-          skippedSheets.push(sheetName);
-          return;
-        }
-
-        const sheet = workbook.Sheets[sheetName];
-        const aoa: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
-        if (aoa.length < 2) {
-          emptySheets.push(sheetName);
-          return;
-        }
-
-        const headerMap = buildHeaderMap(aoa[0] || []);
-        const rows = aoa.slice(1);
-        const parsedStudents = rows
-          .map((row, index) => {
-            const rowObj: Record<string, any> = {};
-            row.forEach((cellValue, cellIndex) => {
-              rowObj[XLSX.utils.encode_col(cellIndex)] = cellValue;
-            });
-
-            // Preserve named headers when available, but always keep A:D access as fallback.
-            (aoa[0] || []).forEach((header, cellIndex) => {
-              if (!header) return;
-              rowObj[String(header)] = row[cellIndex];
-            });
-
-            return parseExcelRow(rowObj, index + 1, headerMap);
-          })
-          .filter((item): item is Student => Boolean(item))
-          .sort((a, b) => a.number - b.number);
-
-        if (parsedStudents.length > 0) {
-          importedByClassroom.set(classroom, parsedStudents);
-        } else {
-          emptySheets.push(sheetName);
-        }
-      });
-
-      if (importedByClassroom.size === 0) {
-        showToast("ไม่พบ sheet ห้องเรียนที่รองรับในไฟล์นี้", "warning");
-        return;
-      }
-
-      let successCount = 0;
-      const failedClassrooms: string[] = [];
-
-      for (const [classroom, parsedStudents] of importedByClassroom.entries()) {
-        const res = await api.saveStudents(classroom, parsedStudents);
-        if (res.success) {
-          successCount += 1;
-        } else {
-          failedClassrooms.push(classroom);
-        }
-      }
-
-      const sheetList = Array.from(importedByClassroom.keys()).join(", ");
-      const warnings = [
-        skippedSheets.length > 0 ? `ข้าม sheet: ${skippedSheets.join(", ")}` : "",
-        emptySheets.length > 0 ? `sheet ว่าง/ไม่ครบข้อมูล: ${emptySheets.join(", ")}` : "",
-        failedClassrooms.length > 0 ? `บันทึกไม่สำเร็จ: ${failedClassrooms.join(", ")}` : "",
-      ].filter(Boolean);
-
-      showToast(
-        `นำเข้าข้อมูลสำเร็จ ${successCount} ห้อง (${sheetList})` +
-          (warnings.length ? ` | ${warnings.join(" | ")}` : ""),
-        failedClassrooms.length > 0 ? "warning" : "success",
-        5000
-      );
-
-      if (viewMode === "all") {
-        await loadAllStudents();
-      } else {
-        await loadStudents();
-      }
-    } catch (err) {
+      const result = await parseExcelFileForPreview(file);
+      setPreviewByClassroom(result.importedByClassroom);
+      setPreviewSkippedSheets(result.skippedSheets);
+      setPreviewEmptySheets(result.emptySheets);
+      setIsPreviewOpen(true);
+    } catch (err: any) {
       console.error(err);
-      showToast("ไฟล์ Excel รูปแบบไม่ถูกต้อง ไม่สามารถนำเข้าได้", "error");
+      showToast(err?.message || "ไฟล์ Excel รูปแบบไม่ถูกต้อง ไม่สามารถนำเข้าได้", "error");
     } finally {
       setLoading(false);
 
@@ -349,6 +339,56 @@ export default function AdminPage() {
       setDragActive(false);
     }
   };
+
+  const handleConfirmExcelPreviewSave = async () => {
+    if (loading) return;
+
+    setLoading(true);
+    try {
+      const classrooms = Object.keys(previewByClassroom);
+      if (classrooms.length === 0) {
+        showToast("ไม่มีข้อมูลที่จะบันทึก", "warning");
+        return;
+      }
+
+
+      let successCount = 0;
+      const failedClassrooms: string[] = [];
+
+      for (const classroom of classrooms) {
+        const parsedStudents = previewByClassroom[classroom] || [];
+        const res = await api.saveStudents(classroom, parsedStudents);
+        if (res.success) successCount += 1;
+        else failedClassrooms.push(classroom);
+      }
+
+      const sheetList = classrooms.join(", ");
+      const warnings = [
+        previewSkippedSheets.length > 0 ? `ข้าม sheet: ${previewSkippedSheets.join(", ")}` : "",
+        previewEmptySheets.length > 0 ? `sheet ว่าง/ไม่ครบข้อมูล: ${previewEmptySheets.join(", ")}` : "",
+        failedClassrooms.length > 0 ? `บันทึกไม่สำเร็จ: ${failedClassrooms.join(", ")}` : "",
+      ].filter(Boolean);
+
+      showToast(
+        `นำเข้าข้อมูลสำเร็จ ${successCount} ห้อง (${sheetList})` +
+          (warnings.length ? ` | ${warnings.join(" | ")}` : ""),
+        failedClassrooms.length > 0 ? "warning" : "success",
+        5000
+      );
+
+      if (viewMode === "all") await loadAllStudents();
+      else await loadStudents();
+
+      // Close preview modal automatically after saving
+      setIsPreviewOpen(false);
+    } catch (err: any) {
+      console.error(err);
+      showToast(err?.message || "เกิดข้อผิดพลาดในการบันทึกข้อมูล", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   // Bulk Excel Import (input change)
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -573,6 +613,7 @@ export default function AdminPage() {
 
                     void processExcelFile(file);
                   }}
+
                   className={`
                     group flex flex-col items-center justify-center gap-3
                     border-2 border-dashed rounded-2xl p-8 cursor-pointer transition-all
@@ -755,18 +796,7 @@ export default function AdminPage() {
                     </Table>
                   </div>
 
-                  {/* Save button footer */}
-                  {canEditCurrentView && (
-                    <div className="p-4 bg-orange-50/30 border-t border-orange-100 flex justify-end gap-2">
-                      <Button
-                        onClick={handleSaveAll}
-                        disabled={loading}
-                        className="font-bold flex items-center gap-1.5"
-                      >
-                        <Save className="h-4 w-4" /> บันทึกข้อมูลเข้า Google Sheet
-                      </Button>
-                    </div>
-                  )}
+                 
                 </>
               )}
 
@@ -776,6 +806,110 @@ export default function AdminPage() {
         </div>
 
       </div>
+
+      {/* Excel Preview dialog */}
+      <Dialog
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        title="พรีวิวข้อมูลที่จะนำเข้า"
+        description="ตรวจสอบข้อมูลก่อนกดยืนยันเพื่อบันทึกลงฐานข้อมูล"
+      >
+        <div className="max-h-[70vh] overflow-y-auto space-y-5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="rounded-xl border border-orange-100 bg-orange-50/40 p-3">
+              <div className="text-[11px] font-bold text-gray-500">จำนวนห้อง</div>
+              <div className="text-base font-extrabold text-orange-950">
+                {Object.keys(previewByClassroom).length}
+              </div>
+            </div>
+            <div className="rounded-xl border border-orange-100 bg-orange-50/40 p-3">
+              <div className="text-[11px] font-bold text-gray-500">จำนวนแถวรวม</div>
+              <div className="text-base font-extrabold text-orange-950">
+                {Object.values(previewByClassroom).reduce((acc, list) => acc + (list?.length || 0), 0)}
+              </div>
+            </div>
+            <div className="rounded-xl border border-orange-100 bg-orange-50/40 p-3">
+              <div className="text-[11px] font-bold text-gray-500">ไฟล์ที่ถูกข้าม/ว่าง</div>
+              <div className="text-base font-extrabold text-orange-950">
+                {(previewSkippedSheets?.length || 0) + (previewEmptySheets?.length || 0)}
+              </div>
+            </div>
+          </div>
+
+          {previewSkippedSheets.length > 0 && (
+            <div className="rounded-xl border border-amber-100 bg-amber-50/40 p-3">
+              <div className="text-sm font-bold text-amber-900">ข้าม sheet</div>
+              <div className="text-xs text-amber-900/80 font-semibold">
+                {previewSkippedSheets.join(", ")}
+              </div>
+            </div>
+          )}
+
+          {previewEmptySheets.length > 0 && (
+            <div className="rounded-xl border border-amber-100 bg-amber-50/40 p-3">
+              <div className="text-sm font-bold text-amber-900">sheet ว่าง/ไม่ครบข้อมูล</div>
+              <div className="text-xs text-amber-900/80 font-semibold">
+                {previewEmptySheets.join(", ")}
+              </div>
+            </div>
+          )}
+
+          {Object.entries(previewByClassroom).map(([classroom, students]) => (
+            <div key={classroom} className="space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-sm font-extrabold text-orange-950">ห้องเรียน {classroom}</div>
+                <div className="text-[11px] font-bold text-gray-500">{students.length} คน</div>
+              </div>
+
+              <div className="border border-orange-100 rounded-xl overflow-hidden">
+                <Table>
+                  <TableHeader className="bg-orange-50">
+                    <TableRow>
+                      <TableHead className="w-16 text-center">เลขที่</TableHead>
+                      <TableHead className="w-32">รหัสประจำตัว</TableHead>
+                      <TableHead>ชื่อ - นามสกุล</TableHead>
+                      <TableHead className="w-24 text-center">ชั้น</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {students.map((s) => (
+                      <TableRow key={`${classroom}:${s.studentId}`}>
+                        <TableCell className="text-center font-bold text-gray-600">
+                          {s.number}
+                        </TableCell>
+                        <TableCell className="font-mono font-semibold text-gray-600">
+                          {s.studentId}
+                        </TableCell>
+                        <TableCell className="font-semibold text-gray-800">
+                          {s.name}
+                        </TableCell>
+                        <TableCell className="text-center font-semibold text-gray-600">
+                          {classroom}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-6 flex justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={() => setIsPreviewOpen(false)} disabled={loading}>
+            ยกเลิก
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleConfirmExcelPreviewSave}
+            loading={loading}
+            className="font-bold"
+          >
+            ยืนยันบันทึกลงฐานข้อมูล
+          </Button>
+        </div>
+      </Dialog>
 
       {/* Manual Add dialog */}
       <Dialog

@@ -1,10 +1,9 @@
 # TODO
 
-## Admin: เพิ่มนักเรียนแบบระบุเอง + เลือกชั้น/ห้อง
-- [x] แก้ `src/app/dashboard/admin/page.tsx` เพิ่ม state สำหรับชั้น/ห้องใน Dialog
-
-- [ ] เพิ่ม dropdown ชนิดชั้น (2-6) และ dropdown ห้องตามชั้น
-- [ ] แก้ฟังก์ชัน `handleManualAddSubmit` ให้เพิ่มนักเรียนลงตารางของห้องที่เลือก
-- [ ] ปรับ UX: ตอนเพิ่มให้เปิด/โหลดข้อมูลห้องนั้น (ถ้าต่างจาก selectedClassroom)
-- [ ] ตรวจ TypeScript errors และความเข้ากันกับโหมด viewMode
+- [ ] Admin: ปรับ flow อัปโหลด Excel ให้ “parse ก่อน” แล้วเปิด modal พรีวิว
+- [ ] Admin: แสดงรายละเอียดใน modal (แยกตามห้อง/จำนวน/ตารางนักเรียน/สรุป sheet ที่ข้าม/ว่าง)
+- [ ] Admin: กด Confirm ใน modal ค่อยเรียก `api.saveStudents(...)`
+- [ ] Admin: ปรับ UX ให้ dragActive ถูก reset, clear input หลังสำเร็จ/ยกเลิก
+- [ ] Admin: ปรับขนาด Dialog/เพิ่ม scroll เพื่อให้พรีวิวหลายห้องดูได้
+- [ ] ทดสอบ: ลากไฟล์ .xlsx หลาย sheet แล้ว confirm/cancel ถูกต้อง
 

@@ -41,7 +41,8 @@ export const Dialog: React.FC<DialogProps> = ({
       />
 
       {/* Dialog Panel */}
-      <div className="relative bg-white rounded-2xl max-w-md w-full shadow-xl border border-orange-100 overflow-hidden transform transition-all p-6 animate-in fade-in zoom-in-95 duration-200 z-10">
+      <div className="relative bg-white rounded-2xl max-w-4xl w-full shadow-xl border border-orange-100 overflow-hidden transform transition-all p-6 animate-in fade-in zoom-in-95 duration-200 z-10">
+
         <div className="mb-4">
           <h3 className="text-lg font-bold text-gray-900">{title}</h3>
           {description && (
@@ -51,16 +52,6 @@ export const Dialog: React.FC<DialogProps> = ({
 
         <div className="my-4 text-sm text-gray-600">
           {children}
-        </div>
-
-        <div className="mt-6 flex justify-end gap-2">
-          {footer ? (
-            footer
-          ) : (
-            <Button variant="outline" size="sm" onClick={onClose}>
-              ยกเลิก
-            </Button>
-          )}
         </div>
       </div>
     </div>
