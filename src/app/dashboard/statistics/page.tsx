@@ -25,6 +25,8 @@ import {
   CheckCircle2,
   Printer,
   Download,
+  Calendar,
+  X,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -50,7 +52,7 @@ ChartJS.register(
   ChartTitle
 );
 
-type RangeFilter = "all" | "7d" | "30d";
+type RangeFilter = "all" | "7d" | "30d" | "custom";
 
 interface ClassroomSummary {
   classroom: string;
@@ -82,6 +84,17 @@ const statusConfig = [
   { key: "ขาด", label: "ขาดเรียน", color: "#ef4444" },
 ] as const;
 
+const RANGE_PRESETS: { value: RangeFilter; label: string; days: number | null }[] = [
+  { value: "all", label: "ข้อมูลทั้งหมด", days: null },
+  { value: "7d", label: "7 วันที่ผ่านมา", days: 7 },
+  { value: "30d", label: "30 วันที่ผ่านมา", days: 30 },
+  { value: "custom", label: "กำหนดเอง", days: null },
+];
+
+function formatDate(date: Date): string {
+  return date.toISOString().split("T")[0];
+}
+
 export default function StatisticsPage() {
   const { session } = useAuth();
   const { showToast } = useToast();
@@ -90,6 +103,9 @@ export default function StatisticsPage() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [rangeFilter, setRangeFilter] = useState<RangeFilter>("all");
+
+  const [customStartDate, setCustomStartDate] = useState<string>("");
+  const [customEndDate, setCustomEndDate] = useState<string>("");
 
   const [selectedClassroom, setSelectedClassroom] = useState<string>(
     session.role === "admin" ? ALL_CLASSROOMS_VALUE : session.classroomLock || "2/1"
@@ -145,11 +161,25 @@ export default function StatisticsPage() {
   const filteredAttendance = useMemo(() => {
     if (rangeFilter === "all") return attendance;
 
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - (rangeFilter === "7d" ? 7 : 30));
-    const cutoffStr = cutoffDate.toISOString().split("T")[0];
+    let cutoffDate: Date | null = null;
+
+    if (rangeFilter === "custom") {
+      if (!customStartDate && !customEndDate) return attendance;
+      return attendance.filter((r) => {
+        if (customStartDate && r.date < customStartDate) return false;
+        if (customEndDate && r.date > customEndDate) return false;
+        return true;
+      });
+    }
+
+    const preset = RANGE_PRESETS.find((p) => p.value === rangeFilter);
+    if (!preset || preset.days === null) return attendance;
+
+    cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - preset.days);
+    const cutoffStr = formatDate(cutoffDate);
     return attendance.filter((r) => r.date >= cutoffStr);
-  }, [attendance, rangeFilter]);
+  }, [attendance, rangeFilter, customStartDate, customEndDate]);
 
   const statusCounts = useMemo(() => {
     return filteredAttendance.reduce(
@@ -558,21 +588,57 @@ export default function StatisticsPage() {
             />
           </div>
 
-      <div className="w-full lg:w-56">
+          <div className="w-full lg:w-56">
             <Select
               label="ช่วงเวลาวิเคราะห์"
               value={rangeFilter}
               onChange={(e) => setRangeFilter(e.target.value as RangeFilter)}
-              options={[
-                { value: "all", label: "ข้อมูลทั้งหมด" },
-                { value: "3d", label: "3 วันที่ผ่านมา" },
-                { value: "7d", label: "7 วันที่ผ่านมา" },
-                { value: "14d", label: "14 วันที่ผ่านมา" },
-                { value: "30d", label: "30 วันที่ผ่านมา" },
-                { value: "90d", label: "90 วันที่ผ่านมา" },
-              ]}
+              options={RANGE_PRESETS.map((p) => ({ value: p.value, label: p.label }))}
             />
           </div>
+
+          {rangeFilter === "custom" && (
+            <div className="flex flex-col sm:flex-row items-end gap-3 w-full lg:w-auto">
+              <div className="w-full sm:w-44">
+                <label className="text-sm font-semibold text-gray-700 block mb-1.5">วันที่เริ่มต้น</label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="flex h-10 w-full rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm text-gray-800 transition-all focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent"
+                  />
+                  <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-orange-400 pointer-events-none" />
+                </div>
+              </div>
+              <div className="w-full sm:w-44">
+                <label className="text-sm font-semibold text-gray-700 block mb-1.5">วันที่สิ้นสุด</label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    max={formatDate(new Date())}
+                    className="flex h-10 w-full rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm text-gray-800 transition-all focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent"
+                  />
+                  <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-orange-400 pointer-events-none" />
+                </div>
+              </div>
+              {(customStartDate || customEndDate) && (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setCustomStartDate("");
+                    setCustomEndDate("");
+                  }}
+                  className="text-xs text-gray-500 hover:text-red-600 h-10 px-2"
+                  title="ล้างวันที่"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          )}
 
           <div className="flex gap-2 w-full lg:w-auto">
             <Button
@@ -867,4 +933,3 @@ export default function StatisticsPage() {
     </div>
   );
 }
-

@@ -329,6 +329,16 @@ export default function AttendancePage() {
               />
             </div>
             <div className="w-full md:w-auto flex gap-2">
+              {selectedDate !== todayDate && (
+                <Button
+                  variant="outline"
+                  onClick={() => setSelectedDate(todayDate)}
+                  disabled={loading}
+                  className="px-4 h-11 w-full md:w-auto border-orange-200 rounded-full font-bold text-base"
+                >
+                  <CalendarIcon className="h-4 w-4" /> วันนี้
+                </Button>
+              )}
               <Button
                 variant="outline"
                 onClick={loadData}
@@ -574,7 +584,7 @@ export default function AttendancePage() {
             <div className="flex justify-end gap-2 bg-white p-4 rounded-3xl border border-orange-100 shadow-sm">
               <Button
                 onClick={handleSave}
-                disabled={loading || students.length === 0 || !isToday || !allStudentsChecked}
+                disabled={loading || students.length === 0  || !allStudentsChecked}
                 className="h-11 px-8 text-base font-bold rounded-full shadow-md shadow-orange-100"
                 loading={loading}
               >
