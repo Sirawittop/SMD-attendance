@@ -957,7 +957,7 @@ export default function AdminPage() {
 
           <Input
             label="รหัสประจำตัวนักเรียน"
-            placeholder="เช่น 1001"
+            placeholder="เช่น 100101"
             value={newStudent.studentId}
             onChange={(e) => setNewStudent({ ...newStudent, studentId: e.target.value })}
           />

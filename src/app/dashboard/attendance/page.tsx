@@ -190,15 +190,10 @@ export default function AttendancePage() {
   }, [students]);
 
   const isToday = selectedDate === todayDate;
-  const editable = isToday && !isReadOnlyView;
-
+  const editable = !isReadOnlyView;
 
   // Save attendance
   const handleSave = async () => {
-    if (!isToday) {
-      showToast("โหมดย้อนหลังดูข้อมูลได้อย่างเดียว ไม่สามารถบันทึกได้", "warning");
-      return;
-    }
 
     if (students.length === 0) {
       showToast("ไม่มีข้อมูลนักเรียนสำหรับบันทึก", "warning");
@@ -268,22 +263,20 @@ export default function AttendancePage() {
               <button
                 type="button"
                 onClick={() => setTeacherTab("mine")}
-                className={`h-10 px-4 rounded-full text-sm font-bold border transition-all ${
-                  teacherTab === "mine"
+                className={`h-10 px-4 rounded-full text-sm font-bold border transition-all ${teacherTab === "mine"
                     ? "bg-orange-500 text-white border-orange-600 shadow-sm"
                     : "bg-white text-gray-700 border-orange-200 hover:bg-orange-50"
-                }`}
+                  }`}
               >
                 ห้องของฉัน
               </button>
               <button
                 type="button"
                 onClick={() => setTeacherTab("other")}
-                className={`h-10 px-4 rounded-full text-sm font-bold border transition-all ${
-                  teacherTab === "other"
+                className={`h-10 px-4 rounded-full text-sm font-bold border transition-all ${teacherTab === "other"
                     ? "bg-orange-500 text-white border-orange-600 shadow-sm"
                     : "bg-white text-gray-700 border-orange-200 hover:bg-orange-50"
-                }`}
+                  }`}
               >
                 ดูห้องอื่น
               </button>
@@ -312,20 +305,29 @@ export default function AttendancePage() {
               <label className="text-sm font-semibold text-gray-700 block">
                 วันที่บันทึกการเช็คชื่อ
               </label>
-              <div className="relative">
-                <div
-                  className="flex items-center gap-3 h-11 w-full rounded-full border border-orange-200 bg-gray-50 px-4 py-2 text-base text-gray-500 opacity-60 cursor-not-allowed pointer-events-none"
-                  title="วันที่ถูกล็อก"
-                  aria-disabled="true"
-                >
-                  <CalendarIcon className="h-5 w-5 text-gray-400" />
-                  <span className="select-none">
-                    {new Date(selectedDate).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" })}
-                  </span>
-                </div>
-              </div>
-            </div>
 
+              <input
+                type="date"
+                value={selectedDate}
+                max={todayDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="
+      h-11
+      w-full
+      rounded-full
+      border
+      border-orange-200
+      bg-white
+      px-4
+      text-base
+      text-gray-700
+      focus:outline-none
+      focus:ring-2
+      focus:ring-orange-300
+      focus:border-orange-400
+    "
+              />
+            </div>
             <div className="w-full md:w-auto flex gap-2">
               <Button
                 variant="outline"
@@ -402,8 +404,8 @@ export default function AttendancePage() {
                     onClick={() => handleStatusChange(student.studentId, "มา")}
                     disabled={!editable}
                     className={`h-11 rounded-full font-bold text-sm border transform-gpu transition-all duration-200 ease-out active:scale-[0.95] motion-safe:hover:-translate-y-0.5 ${student.status === "มา"
-                        ? "bg-emerald-500 border-emerald-600 text-white shadow-lg shadow-emerald-100 ring-2 ring-emerald-200/80"
-                        : "bg-white border-emerald-100 text-emerald-700 hover:bg-emerald-50"
+                      ? "bg-emerald-500 border-emerald-600 text-white shadow-lg shadow-emerald-100 ring-2 ring-emerald-200/80"
+                      : "bg-white border-emerald-100 text-emerald-700 hover:bg-emerald-50"
                       } ${!editable ? "opacity-60 cursor-not-allowed" : ""}`}
                   >
                     มา
@@ -414,8 +416,8 @@ export default function AttendancePage() {
                     onClick={() => handleStatusChange(student.studentId, "สาย")}
                     disabled={!editable}
                     className={`h-11 rounded-full font-bold text-sm border transform-gpu transition-all duration-200 ease-out active:scale-[0.95] motion-safe:hover:-translate-y-0.5 ${student.status === "สาย"
-                        ? "bg-amber-500 border-amber-600 text-white shadow-lg shadow-amber-100 ring-2 ring-amber-200/80"
-                        : "bg-white border-amber-100 text-amber-700 hover:bg-amber-50"
+                      ? "bg-amber-500 border-amber-600 text-white shadow-lg shadow-amber-100 ring-2 ring-amber-200/80"
+                      : "bg-white border-amber-100 text-amber-700 hover:bg-amber-50"
                       } ${!editable ? "opacity-60 cursor-not-allowed" : ""}`}
                   >
                     สาย
@@ -426,8 +428,8 @@ export default function AttendancePage() {
                     onClick={() => handleStatusChange(student.studentId, "ลา")}
                     disabled={!editable}
                     className={`h-11 rounded-full font-bold text-sm border transform-gpu transition-all duration-200 ease-out active:scale-[0.95] motion-safe:hover:-translate-y-0.5 ${student.status === "ลา"
-                        ? "bg-blue-500 border-blue-600 text-white shadow-lg shadow-blue-100 ring-2 ring-blue-200/80"
-                        : "bg-white border-blue-100 text-blue-700 hover:bg-blue-50"
+                      ? "bg-blue-500 border-blue-600 text-white shadow-lg shadow-blue-100 ring-2 ring-blue-200/80"
+                      : "bg-white border-blue-100 text-blue-700 hover:bg-blue-50"
                       } ${!editable ? "opacity-60 cursor-not-allowed" : ""}`}
                   >
                     ลา
@@ -438,8 +440,8 @@ export default function AttendancePage() {
                     onClick={() => handleStatusChange(student.studentId, "ขาด")}
                     disabled={!editable}
                     className={`h-11 rounded-full font-bold text-sm border transform-gpu transition-all duration-200 ease-out active:scale-[0.95] motion-safe:hover:-translate-y-0.5 ${student.status === "ขาด"
-                        ? "bg-red-500 border-red-600 text-white shadow-lg shadow-red-100 ring-2 ring-red-200/80"
-                        : "bg-white border-red-100 text-red-700 hover:bg-red-50"
+                      ? "bg-red-500 border-red-600 text-white shadow-lg shadow-red-100 ring-2 ring-red-200/80"
+                      : "bg-white border-red-100 text-red-700 hover:bg-red-50"
                       } ${!editable ? "opacity-60 cursor-not-allowed" : ""}`}
                   >
                     ขาด
@@ -481,8 +483,8 @@ export default function AttendancePage() {
                             onClick={() => handleStatusChange(student.studentId, "มา")}
                             disabled={!editable}
                             className={`flex-1 h-9 rounded-full font-bold text-sm border transform-gpu transition-all duration-200 ease-out active:scale-[0.97] motion-safe:hover:-translate-y-0.5 ${student.status === "มา"
-                                ? "bg-emerald-500 border-emerald-600 text-white shadow-md ring-2 ring-emerald-200/80"
-                                : "bg-white border-emerald-100 text-emerald-700 hover:bg-emerald-50"
+                              ? "bg-emerald-500 border-emerald-600 text-white shadow-md ring-2 ring-emerald-200/80"
+                              : "bg-white border-emerald-100 text-emerald-700 hover:bg-emerald-50"
                               } ${!editable ? "opacity-60 cursor-not-allowed" : ""}`}
                           >
                             มา
@@ -493,8 +495,8 @@ export default function AttendancePage() {
                             onClick={() => handleStatusChange(student.studentId, "สาย")}
                             disabled={!editable}
                             className={`flex-1 h-9 rounded-full font-bold text-sm border transform-gpu transition-all duration-200 ease-out active:scale-[0.97] motion-safe:hover:-translate-y-0.5 ${student.status === "สาย"
-                                ? "bg-amber-500 border-amber-600 text-white shadow-md ring-2 ring-amber-200/80"
-                                : "bg-white border-amber-100 text-amber-700 hover:bg-amber-50"
+                              ? "bg-amber-500 border-amber-600 text-white shadow-md ring-2 ring-amber-200/80"
+                              : "bg-white border-amber-100 text-amber-700 hover:bg-amber-50"
                               } ${!editable ? "opacity-60 cursor-not-allowed" : ""}`}
                           >
                             สาย
@@ -505,8 +507,8 @@ export default function AttendancePage() {
                             onClick={() => handleStatusChange(student.studentId, "ลา")}
                             disabled={!editable}
                             className={`flex-1 h-9 rounded-full font-bold text-sm border transform-gpu transition-all duration-200 ease-out active:scale-[0.97] motion-safe:hover:-translate-y-0.5 ${student.status === "ลา"
-                                ? "bg-blue-500 border-blue-600 text-white shadow-md ring-2 ring-blue-200/80"
-                                : "bg-white border-blue-100 text-blue-700 hover:bg-blue-50"
+                              ? "bg-blue-500 border-blue-600 text-white shadow-md ring-2 ring-blue-200/80"
+                              : "bg-white border-blue-100 text-blue-700 hover:bg-blue-50"
                               } ${!editable ? "opacity-60 cursor-not-allowed" : ""}`}
                           >
                             ลา
@@ -517,8 +519,8 @@ export default function AttendancePage() {
                             onClick={() => handleStatusChange(student.studentId, "ขาด")}
                             disabled={!editable}
                             className={`flex-1 h-9 rounded-full font-bold text-sm border transform-gpu transition-all duration-200 ease-out active:scale-[0.97] motion-safe:hover:-translate-y-0.5 ${student.status === "ขาด"
-                                ? "bg-red-500 border-red-600 text-white shadow-md ring-2 ring-red-200/80"
-                                : "bg-white border-red-100 text-red-700 hover:bg-red-50"
+                              ? "bg-red-500 border-red-600 text-white shadow-md ring-2 ring-red-200/80"
+                              : "bg-white border-red-100 text-red-700 hover:bg-red-50"
                               } ${!editable ? "opacity-60 cursor-not-allowed" : ""}`}
                           >
                             ขาด
@@ -548,12 +550,12 @@ export default function AttendancePage() {
                 {presentCount}
               </div>
 
-                {/* Late */}
+              {/* Late */}
               <div className="flex-1 min-w-0 h-10 rounded-full border border-amber-200 bg-amber-50 flex items-center justify-center text-sm font-bold text-amber-700">
                 {lateCount}
               </div>
 
-                {/* Leave */}
+              {/* Leave */}
               <div className="flex-1 min-w-0 h-10 rounded-full border border-blue-200 bg-blue-50 flex items-center justify-center text-sm font-bold text-blue-700">
                 {leaveCount}
               </div>
