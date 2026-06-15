@@ -321,4 +321,40 @@ export const api = {
 
     return { success: true, checks: formattedChecks };
   },
+
+  deleteAllStudents: async (): Promise<{ success: boolean; message: string }> => {
+    const { error } = await supabase
+      .from('students')
+      .delete()
+      .neq('classroom', 'NONE_CLASSROOM');
+    if (error) {
+      console.error("Error deleting all students:", error);
+      return { success: false, message: "เกิดข้อผิดพลาดในการลบข้อมูลนักเรียนทั้งหมด" };
+    }
+    return { success: true, message: "ลบข้อมูลรายชื่อนักเรียนทั้งหมดสำเร็จ" };
+  },
+
+  deleteAllAttendance: async (): Promise<{ success: boolean; message: string }> => {
+    const { error } = await supabase
+      .from('attendance')
+      .delete()
+      .neq('classroom', 'NONE_CLASSROOM');
+    if (error) {
+      console.error("Error deleting all attendance:", error);
+      return { success: false, message: "เกิดข้อผิดพลาดในการลบข้อมูลการเช็กชื่อทั้งหมด" };
+    }
+    return { success: true, message: "ลบข้อมูลการเช็กชื่อทั้งหมดสำเร็จ" };
+  },
+
+  deleteAllUniformChecks: async (): Promise<{ success: boolean; message: string }> => {
+    const { error } = await supabase
+      .from('uniform_checks')
+      .delete()
+      .neq('classroom', 'NONE_CLASSROOM');
+    if (error) {
+      console.error("Error deleting all uniform checks:", error);
+      return { success: false, message: "เกิดข้อผิดพลาดในการลบข้อมูลการตรวจเครื่องแต่งกายทั้งหมด" };
+    }
+    return { success: true, message: "ลบข้อมูลการตรวจเครื่องแต่งกายทั้งหมดสำเร็จ" };
+  },
 };

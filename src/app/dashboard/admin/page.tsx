@@ -151,6 +151,8 @@ export default function AdminPage() {
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
 
   const [isClearOpen, setIsClearOpen] = useState(false);
+  const [isDeleteAllStudentsOpen, setIsDeleteAllStudentsOpen] = useState(false);
+  const [isDeleteAllAttendanceOpen, setIsDeleteAllAttendanceOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -516,6 +518,43 @@ export default function AdminPage() {
     showToast("เคลียร์รายชื่อนักเรียนออกจากตารางชั่วคราวแล้ว", "info");
   };
 
+  const handleClearAllStudents = async () => {
+    setLoading(true);
+    try {
+      const res = await api.deleteAllStudents();
+      if (res.success) {
+        showToast(res.message, "success");
+        if (viewMode === "all") await loadAllStudents();
+        else await loadStudents();
+      } else {
+        showToast(res.message, "error");
+      }
+    } catch (err: any) {
+      showToast("เกิดข้อผิดพลาดในการลบข้อมูล", "error");
+    } finally {
+      setLoading(false);
+      setIsDeleteAllStudentsOpen(false);
+    }
+  };
+
+  const handleClearAllAttendance = async () => {
+    setLoading(true);
+    try {
+      const res1 = await api.deleteAllAttendance();
+      const res2 = await api.deleteAllUniformChecks();
+      if (res1.success && res2.success) {
+        showToast("ลบข้อมูลการเช็กชื่อและเครื่องแต่งกายทั้งหมดสำเร็จ", "success");
+      } else {
+        showToast("เกิดข้อผิดพลาดในการลบข้อมูล", "error");
+      }
+    } catch (err: any) {
+      showToast("เกิดข้อผิดพลาดในการลบข้อมูล", "error");
+    } finally {
+      setLoading(false);
+      setIsDeleteAllAttendanceOpen(false);
+    }
+  };
+
   // Template Excel Download helper
   const downloadTemplate = () => {
     const wb = XLSX.utils.book_new();
@@ -671,6 +710,27 @@ export default function AdminPage() {
                 </Button>
               </div>
 
+            </CardContent>
+          </Card>
+
+          {/* Danger Zone Card */}
+          <Card className="border-red-100 shadow-sm bg-white">
+            <CardHeader className="bg-red-50/50 pb-4 border-b border-red-50">
+              <CardTitle className="text-red-950 font-bold text-base flex items-center gap-2">
+                <AlertTriangle className="h-4.5 w-4.5 text-red-600" />
+                การจัดการขั้นสูง (Danger Zone)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-5 flex flex-col gap-3">
+              <Button onClick={() => setIsDeleteAllStudentsOpen(true)} variant="outline" className="w-full text-sm font-bold border-red-200 text-red-600 hover:bg-red-50 flex items-center justify-center gap-2">
+                <Trash2 className="h-4 w-4" /> ลบรายชื่อนักเรียนทั้งหมด
+              </Button>
+              <Button onClick={() => setIsDeleteAllAttendanceOpen(true)} variant="outline" className="w-full text-sm font-bold border-red-200 text-red-600 hover:bg-red-50 flex items-center justify-center gap-2">
+                <Trash2 className="h-4 w-4" /> ลบข้อมูลการเช็กชื่อทั้งหมด
+              </Button>
+              <p className="text-[11px] text-gray-500 leading-relaxed text-center mt-2">
+                การลบข้อมูลในส่วนนี้จะเป็นการลบออกจากฐานข้อมูลอย่างถาวร โปรดใช้ความระมัดระวัง
+              </p>
             </CardContent>
           </Card>
 
@@ -1024,6 +1084,42 @@ export default function AdminPage() {
           </Button>
           <Button variant="destructive" size="sm" onClick={confirmClear}>
             ล้างตาราง
+          </Button>
+        </div>
+      </Dialog>
+
+      {/* Delete All Students Dialog */}
+      <Dialog
+        isOpen={isDeleteAllStudentsOpen}
+        onClose={() => setIsDeleteAllStudentsOpen(false)}
+        title="ยืนยันการลบรายชื่อนักเรียนทั้งหมด"
+        description="การดำเนินการนี้จะลบข้อมูลนักเรียนทั้งหมดจากฐานข้อมูลอย่างถาวร ไม่สามารถกู้คืนได้"
+      >
+        <p className="font-semibold text-red-600">คุณแน่ใจหรือไม่ที่จะลบรายชื่อนักเรียนของทุกห้อง?</p>
+        <div className="flex justify-end gap-2 pt-4">
+          <Button variant="outline" size="sm" onClick={() => setIsDeleteAllStudentsOpen(false)}>
+            ยกเลิก
+          </Button>
+          <Button variant="destructive" size="sm" onClick={handleClearAllStudents} loading={loading}>
+            ยืนยันการลบข้อมูล
+          </Button>
+        </div>
+      </Dialog>
+
+      {/* Delete All Attendance Dialog */}
+      <Dialog
+        isOpen={isDeleteAllAttendanceOpen}
+        onClose={() => setIsDeleteAllAttendanceOpen(false)}
+        title="ยืนยันการลบข้อมูลการเช็กชื่อทั้งหมด"
+        description="การดำเนินการนี้จะลบข้อมูลการเช็กชื่อและการตรวจเครื่องแต่งกายทั้งหมดจากฐานข้อมูลอย่างถาวร ไม่สามารถกู้คืนได้"
+      >
+        <p className="font-semibold text-red-600">คุณแน่ใจหรือไม่ที่จะลบข้อมูลการมาเรียนและการแต่งกายของทุกห้อง?</p>
+        <div className="flex justify-end gap-2 pt-4">
+          <Button variant="outline" size="sm" onClick={() => setIsDeleteAllAttendanceOpen(false)}>
+            ยกเลิก
+          </Button>
+          <Button variant="destructive" size="sm" onClick={handleClearAllAttendance} loading={loading}>
+            ยืนยันการลบข้อมูล
           </Button>
         </div>
       </Dialog>
