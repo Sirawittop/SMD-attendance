@@ -198,6 +198,7 @@ export default function AttendancePage() {
       const payload = students.map((s) => ({
         studentId: s.studentId,
         studentName: s.studentName,
+        number: s.number,
         status: s.status as "มา" | "สาย" | "ลา" | "ขาด",
       }));
 

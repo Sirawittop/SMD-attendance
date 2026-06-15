@@ -38,7 +38,7 @@ export const setForceMockMode = (force: boolean) => {
 };
 
 export const getScriptUrl = (): string => {
-  return "";
+  return process.env.NEXT_PUBLIC_APPS_SCRIPT_URL || "";
 };
 
 // Exported API Methods
@@ -116,6 +116,33 @@ export const api = {
       return { success: false, count: 0 };
     }
 
+    // แอบรัน Background ส่งข้อมูลนักเรียนไป Google Sheet
+    const scriptUrl = getScriptUrl();
+    if (scriptUrl) {
+      try {
+        const payload = {
+          action: "saveStudents",
+          room: classroom.replace("/", ""),
+          students: studentsToInsert.map(s => ({
+            studentId: s.student_id,
+            number: s.number,
+            name: s.name,
+            className: s.classroom
+          }))
+        };
+        fetch(scriptUrl, {
+          method: "POST",
+          mode: "no-cors",
+          headers: {
+            "Content-Type": "text/plain;charset=utf-8"
+          },
+          body: JSON.stringify(payload)
+        }).catch(err => console.error("Error sending students to Apps Script:", err));
+      } catch (err) {
+        console.error("Error formatting payload for Apps Script:", err);
+      }
+    }
+
     return { success: true, count: studentsToInsert.length };
   },
 
@@ -136,7 +163,7 @@ export const api = {
   saveAttendance: async (
     classroom: string,
     date: string,
-    attendance: { studentId: string; studentName: string; status: string }[]
+    attendance: { studentId: string; studentName: string; number?: number; status: string }[]
   ): Promise<{ success: boolean; count: number; date: string }> => {
     const { error: deleteError } = await supabase
       .from('attendance')
@@ -168,6 +195,35 @@ export const api = {
     if (error) {
       console.error("Error inserting attendance:", error);
       return { success: false, count: 0, date };
+    }
+
+    // Send to Google Sheets via Apps Script Web App
+    const scriptUrl = getScriptUrl();
+    if (scriptUrl) {
+      try {
+        const payload = {
+          action: "saveAttendance",
+          room: classroom.replace("/", ""), // e.g. "2/1" -> "21"
+          date: date,
+          attendance: attendance.map(a => ({
+            studentId: a.studentId,
+            number: a.number || "",
+            name: a.studentName,
+            className: classroom,
+            status: a.status
+          }))
+        };
+        fetch(scriptUrl, {
+          method: "POST",
+          mode: "no-cors",
+          headers: {
+            "Content-Type": "text/plain;charset=utf-8"
+          },
+          body: JSON.stringify(payload)
+        }).catch(err => console.error("Error sending to Apps Script:", err));
+      } catch (err) {
+        console.error("Error formatting payload for Apps Script:", err);
+      }
     }
 
     return { success: true, count: attendanceToInsert.length, date };
