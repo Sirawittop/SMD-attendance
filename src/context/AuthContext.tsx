@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 export type UserRole = "admin" | "teacher" | "student" | null;
 
@@ -13,7 +14,7 @@ export interface UserSession {
 
 interface AuthContextType {
   session: UserSession;
-  login: (pin: string) => boolean;
+  login: (pin: string) => Promise<boolean>;
   loginStudent: () => void;
   logout: () => void;
   isLoading: boolean;
@@ -52,19 +53,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Load session from sessionStorage on mount
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const storedRole = sessionStorage.getItem("auth_role") as UserRole;
-      const storedPin = sessionStorage.getItem("auth_pin");
-      const storedLock = sessionStorage.getItem("auth_lock");
+    const checkSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      
+      if (data.session) {
+        const storedRole = sessionStorage.getItem("auth_role") as UserRole;
+        const storedPin = sessionStorage.getItem("auth_pin");
+        const storedLock = sessionStorage.getItem("auth_lock");
 
-      if (storedRole) {
-        setSession({
-          role: storedRole,
-          pin: storedPin,
-          classroomLock: storedLock,
-        });
+        if (storedRole) {
+          setSession({
+            role: storedRole,
+            pin: storedPin,
+            classroomLock: storedLock,
+          });
+        }
+      } else {
+        const storedRole = sessionStorage.getItem("auth_role") as UserRole;
+        if (storedRole === "student") {
+          setSession({
+            role: "student",
+            pin: null,
+            classroomLock: null,
+          });
+        } else {
+          sessionStorage.removeItem("auth_role");
+          sessionStorage.removeItem("auth_pin");
+          sessionStorage.removeItem("auth_lock");
+        }
       }
       setIsLoading(false);
+    };
+
+    if (typeof window !== "undefined") {
+      checkSession();
     }
   }, []);
 
@@ -92,11 +114,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [session, isLoading, pathname, router]);
 
-  const login = (pin: string): boolean => {
+  const login = async (pin: string): Promise<boolean> => {
     const trimmedPin = pin.trim();
+    const email = `${trimmedPin}@smd.com`.toLowerCase();
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email,
+      password: trimmedPin,
+    });
+
+    if (error || !data.user) {
+      console.error("Login failed:", error?.message);
+      return false;
+    }
 
     // 1. Admin Check
-    if (trimmedPin === "ADMIN_MD2026") {
+    if (trimmedPin.startsWith("ADMIN_")) {
       const adminSession: UserSession = {
         role: "admin",
         pin: trimmedPin,
@@ -126,6 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return true;
     }
 
+    await supabase.auth.signOut();
     return false;
   };
 
@@ -142,7 +176,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     router.push("/student");
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await supabase.auth.signOut();
     setSession({ role: null, pin: null, classroomLock: null });
     sessionStorage.removeItem("auth_role");
     sessionStorage.removeItem("auth_pin");

@@ -31,12 +31,7 @@ export default function AttendancePage() {
   };
 
   const myClassroom = session.classroomLock || "2/1";
-  const otherClassroomOptions = useMemo(
-    () => CLASSROOMS.filter((cls) => cls !== myClassroom),
-    [myClassroom]
-  );
 
-  const [teacherTab, setTeacherTab] = useState<"mine" | "other">("mine");
   const [selectedClassroom, setSelectedClassroom] = useState<string>(myClassroom);
 
   // Default date is local today
@@ -47,8 +42,7 @@ export default function AttendancePage() {
   const [spreadsheetUrl, setSpreadsheetUrl] = useState<string>("");
   const [checkedStudentIds, setCheckedStudentIds] = useState<Set<string>>(new Set());
   const isTeacher = session.role === "teacher";
-  const isReadOnlyView = isTeacher && teacherTab === "other";
-  const activeClassroom = isTeacher && teacherTab === "mine" ? myClassroom : selectedClassroom;
+  const activeClassroom = selectedClassroom;
 
   const todayDate = useMemo(() => getTodayDate(), []);
 
@@ -137,13 +131,7 @@ export default function AttendancePage() {
     loadData();
   }, [selectedClassroom, selectedDate, loadData]);
 
-  useEffect(() => {
-    if (isTeacher && teacherTab === "mine") {
-      setSelectedClassroom(myClassroom);
-    } else if (isTeacher && teacherTab === "other" && selectedClassroom === myClassroom) {
-      setSelectedClassroom(otherClassroomOptions[0] || myClassroom);
-    }
-  }, [isTeacher, teacherTab, myClassroom, otherClassroomOptions, selectedClassroom]);
+  // Empty out the useEffect that was here for tab switching
 
   // Update status for a specific student
   const handleStatusChange = (studentId: string, status: "มา" | "สาย" | "ลา" | "ขาด") => {
@@ -190,7 +178,7 @@ export default function AttendancePage() {
   }, [students]);
 
   const isToday = selectedDate === todayDate;
-  const editable = !isReadOnlyView;
+  const editable = true;
 
   // Save attendance
   const handleSave = async () => {
@@ -258,35 +246,7 @@ export default function AttendancePage() {
       {/* Control Card */}
       <Card className="border-orange-100 shadow-sm rounded-3xl overflow-hidden">
         <CardContent className="p-5 flex flex-col gap-4">
-          {isTeacher && (
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setTeacherTab("mine")}
-                className={`h-10 px-4 rounded-full text-sm font-bold border transition-all ${teacherTab === "mine"
-                    ? "bg-orange-500 text-white border-orange-600 shadow-sm"
-                    : "bg-white text-gray-700 border-orange-200 hover:bg-orange-50"
-                  }`}
-              >
-                ห้องของฉัน
-              </button>
-              <button
-                type="button"
-                onClick={() => setTeacherTab("other")}
-                className={`h-10 px-4 rounded-full text-sm font-bold border transition-all ${teacherTab === "other"
-                    ? "bg-orange-500 text-white border-orange-600 shadow-sm"
-                    : "bg-white text-gray-700 border-orange-200 hover:bg-orange-50"
-                  }`}
-              >
-                ดูห้องอื่น
-              </button>
-              {isReadOnlyView && (
-                <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 border border-blue-100">
-                  โหมดอ่านอย่างเดียว
-                </span>
-              )}
-            </div>
-          )}
+          {/* Removed teacher tab buttons */}
 
           <div className="flex flex-col md:flex-row items-end gap-4">
             <div className="w-full md:w-48">
@@ -296,8 +256,7 @@ export default function AttendancePage() {
                 className="text-base"
                 value={selectedClassroom}
                 onChange={(e) => setSelectedClassroom(e.target.value)}
-                disabled={isTeacher && teacherTab === "mine"}
-                options={isTeacher && teacherTab === "other" ? classroomOptions(false).filter((opt) => opt.value !== myClassroom) : classroomOptions(false)}
+                options={classroomOptions(false)}
               />
             </div>
 
@@ -580,24 +539,16 @@ export default function AttendancePage() {
           </div>
 
           {/* Save Bar */}
-          {editable ? (
-            <div className="flex justify-end gap-2 bg-white p-4 rounded-3xl border border-orange-100 shadow-sm">
-              <Button
-                onClick={handleSave}
-                disabled={loading || students.length === 0  || !allStudentsChecked}
-                className="h-11 px-8 text-base font-bold rounded-full shadow-md shadow-orange-100"
-                loading={loading}
-              >
-                <Save className="h-4.5 w-4.5" /> บันทึกการเข้าเรียน
-              </Button>
-            </div>
-          ) : (
-            <Card className="border-blue-100 bg-blue-50/40 shadow-sm">
-              <CardContent className="p-4 text-sm text-blue-900 font-medium">
-                กำลังดูข้อมูลแบบอ่านอย่างเดียวสำหรับ {selectedClassroom} เท่านั้น คุณครูสามารถสลับไปดูห้องอื่นได้ แต่จะไม่สามารถแก้ไขหรือบันทึกข้อมูลในโหมดนี้ได้
-              </CardContent>
-            </Card>
-          )}
+          <div className="flex justify-end gap-2 bg-white p-4 rounded-3xl border border-orange-100 shadow-sm">
+            <Button
+              onClick={handleSave}
+              disabled={loading || students.length === 0  || !allStudentsChecked}
+              className="h-11 px-8 text-base font-bold rounded-full shadow-md shadow-orange-100"
+              loading={loading}
+            >
+              <Save className="h-4.5 w-4.5" /> บันทึกการเข้าเรียน
+            </Button>
+          </div>
 
         </div>
       )}

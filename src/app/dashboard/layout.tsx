@@ -4,18 +4,21 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { 
-  LogOut, 
-  Menu, 
-  X, 
-  Database, 
-  ClipboardCheck, 
-  BarChart3, 
-  Calendar as CalendarIcon, 
-  LineChart, 
+import {
+  LogOut,
+  Menu,
+  X,
+  Database,
+  ClipboardCheck,
+  BarChart3,
+  Calendar as CalendarIcon,
+  LineChart,
   Settings,
+  ListChecks,
   School,
-  Crown
+  Crown,
+  UserCheck,
+  Activity
 } from "lucide-react";
 import { isMockMode } from "@/lib/api";
 
@@ -54,9 +57,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const navigation: NavigationItem[] = [
     { name: "เช็คชื่อนักเรียน", href: "/dashboard/attendance", icon: ClipboardCheck, adminOnly: false },
+    { name: "ตรวจเครื่องแต่งกาย", href: "/dashboard/uniform-check", icon: UserCheck, adminOnly: false },
     { name: "รายงานรายวัน", href: "/dashboard/daily-report", icon: BarChart3, adminOnly: false },
     { name: "ปฏิทินบันทึก", href: "/dashboard/calendar", icon: CalendarIcon, adminOnly: false },
     { name: "สถิติการเข้าเรียน", href: "/dashboard/statistics", icon: LineChart, adminOnly: false },
+    { name: "สถิติเครื่องแต่งกาย", href: "/dashboard/uniform-statistics", icon: ListChecks, adminOnly: false },
     { name: "จัดการระบบ", href: "/dashboard/admin", icon: Settings, adminOnly: true },
   ];
 
@@ -68,7 +73,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-orange-50/10">
-      
+
       {/* Mobile Navbar */}
       <header className="md:hidden bg-white border-b border-orange-100 px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
         <div className="flex items-center gap-2">
@@ -79,10 +84,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
           <img
-  src="/smdlogo.jpg"
-  alt="SMD Logo"
-  className="h-10 w-10 rounded-full object-cover"
-/>
+            src="/smdlogo.jpg"
+            alt="SMD Logo"
+            className="h-10 w-10 rounded-full object-cover"
+          />
           <div>
             <h1 className="font-bold text-orange-900 text-sm">SMD Attendance System</h1>
             <div className="text-[10px] text-gray-500 font-semibold">
@@ -107,7 +112,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Mobile Menu Backdrop */}
       {mobileMenuOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-30 bg-black/30 backdrop-blur-sm md:hidden"
           onClick={() => setMobileMenuOpen(false)}
         />
@@ -115,9 +120,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Mobile Drawer */}
       <nav
-        className={`fixed top-[53px] bottom-0 left-0 w-64 bg-white border-r border-orange-100 z-30 transform transition-transform duration-300 md:hidden flex flex-col justify-between ${
-          mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed top-[53px] bottom-0 left-0 w-64 bg-white border-r border-orange-100 z-30 transform transition-transform duration-300 md:hidden flex flex-col justify-between ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
       >
         <div className="px-3 py-4 space-y-1">
           {filteredNav.map((item) => {
@@ -127,11 +131,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 key={item.href}
                 href={item.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-                  isActive
-                    ? "bg-orange-500 text-white shadow-sm shadow-orange-200"
-                    : "text-gray-700 hover:bg-orange-50 hover:text-orange-900"
-                }`}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${isActive
+                  ? "bg-orange-500 text-white shadow-sm shadow-orange-200"
+                  : "text-gray-700 hover:bg-orange-50 hover:text-orange-900"
+                  }`}
               >
                 <item.icon className={`h-5 w-5 ${isActive ? "text-white" : "text-orange-600"}`} />
                 <span>{item.name}</span>
@@ -139,7 +142,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             );
           })}
         </div>
-        
+
         <div className="p-4 border-t border-orange-50">
           <button
             onClick={() => {
@@ -159,11 +162,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="space-y-6">
           {/* Logo & Info */}
           <div className="flex items-center gap-3 px-3 py-3.5 bg-orange-50/50 rounded-2xl border border-orange-100/60">
-        <img
-  src="/smdlogo.jpg"
-  alt="SMD Logo"
-  className="h-20 w-20 rounded-full object-cover"
-/>            <div>
+            <img
+              src="/smdlogo.jpg"
+              alt="SMD Logo"
+              className="h-20 w-20 rounded-full object-cover"
+            />            <div>
               <h1 className="font-extrabold text-orange-950 text-base leading-tight">SMD Attendance System</h1>
               <div className="text-xs text-gray-500 font-semibold mt-0.5">
                 {session.role === "admin" ? (
@@ -185,11 +188,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-bold transition-all ${
-                    isActive
-                      ? "bg-orange-500 text-white shadow-md shadow-orange-200"
-                      : "text-gray-700 hover:bg-orange-50 hover:text-orange-900"
-                  }`}
+                  className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-bold transition-all ${isActive
+                    ? "bg-orange-500 text-white shadow-md shadow-orange-200"
+                    : "text-gray-700 hover:bg-orange-50 hover:text-orange-900"
+                    }`}
                 >
                   <item.icon className={`h-5 w-5 ${isActive ? "text-white" : "text-orange-600"}`} />
                   <span>{item.name}</span>
@@ -207,7 +209,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <span>ใช้โหมดจำลอง (Mock DB)</span>
             </div>
           )}
-          
+
           <button
             onClick={logout}
             className="flex w-full items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-red-600 hover:bg-red-50 transition-colors border border-transparent hover:border-red-100"

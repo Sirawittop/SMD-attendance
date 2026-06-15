@@ -18,7 +18,7 @@ export default function LoginPage() {
   const mockActive = isMockMode();
   const scriptUrlSet = !!getScriptUrl();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pin) {
       showToast("กรุณากรอกรหัสผ่าน", "warning");
@@ -26,16 +26,16 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    // Simulate brief validation delay
-    setTimeout(() => {
-      const success = login(pin);
-      setLoading(false);
+    try {
+      const success = await login(pin);
       if (success) {
         showToast("เข้าสู่ระบบสำเร็จ", "success");
       } else {
         showToast("รหัสผ่านไม่ถูกต้อง", "error");
       }
-    }, 500);
+    } finally {
+      setLoading(false);
+    }
   };
 
 
