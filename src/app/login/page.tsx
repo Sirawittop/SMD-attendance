@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
-import { KeyRound, GraduationCap, Database, RefreshCw } from "lucide-react";
+import { KeyRound, GraduationCap, Database, RefreshCw, Eye, EyeOff } from "lucide-react";
 import { isMockMode, setForceMockMode, getScriptUrl } from "@/lib/api";
 
 export default function LoginPage() {
   const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { login, loginStudent } = useAuth();
   const { showToast } = useToast();
 
@@ -60,16 +61,24 @@ export default function LoginPage() {
 
         <CardContent className="p-8 pt-4 space-y-6">
           <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-2">
+            <div className="space-y-2 relative">
               <Input
                 label="รหัสห้องเรียน"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 placeholder="กรอกรหัสห้องเรียนของคุณ"
                 value={pin}
                 onChange={(e) => setPin(e.target.value)}
                 disabled={loading}
-                className="text-center font-mono tracking-widest text-lg h-12 bg-gray-50/50 border-gray-200 focus:bg-white transition-colors"
+                className="text-center font-mono tracking-widest text-lg h-12 bg-gray-50/50 border-gray-200 focus:bg-white transition-colors pr-10"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-2 bottom-0 h-12 px-2 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none transition-colors"
+                aria-label={showPassword ? "ซ่อนรหัส" : "แสดงรหัส"}
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
             </div>
 
             <Button
