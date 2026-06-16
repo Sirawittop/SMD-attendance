@@ -1,71 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SMD Attendance System
 
-## Google Sheets Setup
+ระบบเช็คชื่อนักเรียน (Student Attendance System) พัฒนาด้วย Next.js 14 สำหรับใช้งานในโรงเรียน รองรับการเช็คชื่อเข้าเรียน ตรวจเครื่องแต่งกาย และจัดการข้อมูลนักเรียน โดยมีการเชื่อมต่อฐานข้อมูลกับ Supabase และสามารถส่งข้อมูลสำรองไปยัง Google Sheets ได้
 
-This app connects to a real Google Spreadsheet through Google Apps Script.
+## 🌟 ฟีเจอร์หลัก (Features)
 
-### Spreadsheet structure
+- **ระบบล็อกอิน (Authentication):** แบ่งสิทธิ์การใช้งานระหว่างนักเรียน (Student) และครู/ผู้ดูแลระบบ (Admin/Teacher) ผ่าน Supabase
+- **ระบบจัดการข้อมูลนักเรียน:** รองรับการอัปโหลดไฟล์ Excel (`.xlsx`) เพื่อนำเข้าข้อมูลรายชื่อนักเรียนในระบบ
+- **เช็คชื่อเข้าเรียน (Attendance):** บันทึกสถานะการเข้าเรียนของนักเรียน (มา, สาย, ลา, ขาด) 
+- **ตรวจเครื่องแต่งกาย (Uniform Check):** บันทึกผลการตรวจระเบียบเครื่องแต่งกาย ทรงผม และเล็บ พร้อมสามารถระบุหมายเหตุได้
+- **แดชบอร์ดสรุปผล:** มีการแสดงกราฟและสถิติข้อมูลการเข้าเรียน ด้วย Chart.js
+- **Google Sheets Integration:** สามารถตั้งค่าให้ระบบส่งข้อมูลแบบ Background เข้าไปยัง Google Sheets เพื่อใช้สำรองข้อมูลหรือทำรายงาน (ผ่าน Google Apps Script)
 
-- Use one sheet per classroom.
-- Sheet names should be the compact classroom codes: `21`, `22`, ... `65`.
-- Row 1 should contain these headers:
+## 🛠️ เทคโนโลยีที่ใช้ (Tech Stack)
 
-```text
-วันเดือนปี | เลขประจำตัว | เลขที่ | ชื่อ-สกุล | ชั้น | มา | สาย | ลา | ขาด
-```
+- **Framework:** [Next.js 14](https://nextjs.org/) (App Router)
+- **Styling:** [Tailwind CSS](https://tailwindcss.com/)
+- **Database & Auth:** [Supabase](https://supabase.com/)
+- **Icons:** [Lucide React](https://lucide.dev/)
+- **Charts:** [Chart.js](https://www.chartjs.org/) & [react-chartjs-2](https://react-chartjs-2.js.org/)
+- **Dates Handling:** `date-fns`, `react-datepicker`, `react-day-picker`
+- **Excel Parser:** `xlsx`
 
-### Deploy Apps Script
+## 🚀 วิธีการติดตั้งและรันโปรเจกต์ (Getting Started)
 
-1. Open the spreadsheet.
-2. Go to `Extensions > Apps Script`.
-3. Replace the script with [`Code.gs`](./Code.gs).
-4. Deploy as a Web App.
-5. Set `Execute as` to `Me`.
-6. Set `Who has access` to `Anyone`.
-7. Copy the deployed URL into `.env.local`:
+1. **โคลนโปรเจกต์ (Clone repository)**
+   ```bash
+   git clone <repository-url>
+   cd SMD-attendance
+   ```
 
-```bash
-NEXT_PUBLIC_APPS_SCRIPT_URL=https://script.google.com/macros/s/XXXXX/exec
-```
+2. **ติดตั้ง Dependencies**
+   ```bash
+   npm install
+   # หรือ
+   yarn install
+   # หรือ
+   pnpm install
+   ```
 
-### Notes
+3. **ตั้งค่า Environment Variables**
+   สร้างไฟล์ `.env.local` ที่ root directory ของโปรเจกต์ และกำหนดค่าเหล่านี้:
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   
+   # สำหรับส่งข้อมูลไปสำรองที่ Google Sheets (ตั้งค่าเมื่อต้องการใช้)
+   NEXT_PUBLIC_APPS_SCRIPT_URL=your_google_apps_script_web_app_url
+   ```
 
-- `getStudents`, `saveStudents`, `deleteStudent`, `getAttendance`, and `saveAttendance` are all supported.
-- Attendance rows store the actual save timestamp in the first column, but the sheet is formatted to display dates only.
-- If the sheet is empty, you can call the `bootstrapWorkbook` action once from Apps Script to create all classroom tabs and headers.
-- The script is currently bound to spreadsheet ID `1ygvqyv5xc0Bu9LoE6-QRrrCMzsdyPed2MZa_TXIQauM`.
+4. **รัน Development Server**
+   ```bash
+   npm run dev
+   ```
+   จากนั้นเปิดบราวเซอร์ไปที่ [http://localhost:3000](http://localhost:3000) เพื่อเข้าใช้งานระบบ
 
-## Getting Started
+## 📊 การตั้งค่า Google Sheets (อุปกรณ์เสริมสำหรับแอดมิน)
 
-First, run the development server:
+ระบบนี้รองรับการเชื่อมต่อกับ Google Sheets เพื่อบันทึกข้อมูลแบบคู่ขนาน (ผ่าน Apps Script)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+1. สร้าง Google Spreadsheet ใหม่
+2. ไปที่เมนู `Extensions > Apps Script`
+3. คัดลอกโค้ดจากไฟล์ [`Code.gs`](./Code.gs) ในโปรเจกต์ ไปวางทับในเอดิเตอร์
+4. (ตัวเลือก) สามารถรันฟังก์ชัน `bootstrapWorkbook` จากหน้า Apps Script 1 ครั้ง เพื่อให้ระบบสร้าง Sheet ย่อยตามชื่อห้อง (เช่น 21, 22 ... 65) และเขียนหัวตารางให้โดยอัตโนมัติ
+5. กดปุ่ม **Deploy > New Deployment**
+   - Select type: **Web App**
+   - Execute as: **Me**
+   - Who has access: **Anyone**
+6. นำ URL ของ Web App ที่ได้มาใส่ในไฟล์ `.env.local` ที่ตัวแปร `NEXT_PUBLIC_APPS_SCRIPT_URL`
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 📦 โครงสร้างฐานข้อมูล Supabase (Database Schema)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+ระบบใช้งานตารางหลักๆ (Tables) ดังนี้:
+- `students`: เก็บข้อมูลนักเรียน (`student_id`, `name`, `number`, `classroom`)
+- `attendance`: เก็บประวัติการเช็คชื่อรายวัน (`classroom`, `date`, `student_id`, `student_name`, `status`, `timestamp`)
+- `uniform_checks`: เก็บประวัติการตรวจเครื่องแต่งกาย (`classroom`, `date`, `teacher_name`, `student_id`, `student_name`, `uniform_pass`, `hair_pass`, `nail_pass`, พร้อมระบุหมายเหตุ)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 📝 แผนการพัฒนาเพิ่มเติม (TODO)
+ตรวจสอบฟีเจอร์ที่ต้องทำเพิ่มหรือบั๊กที่กำลังแก้ได้ที่ไฟล์ [`TODO.md`](./TODO.md)
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+*พัฒนาระบบสำหรับการจัดการเช็คชื่อนักเรียนในรูปแบบออนไลน์*
