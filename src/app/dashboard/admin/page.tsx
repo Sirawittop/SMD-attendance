@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { api, Student, getDeductionSettings, saveDeductionSettings, resetDeductionSettings, DeductionSettings } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -10,7 +10,11 @@ import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
-import { Upload, Plus, Trash2, Save, Download, RefreshCw, FileSpreadsheet, Settings, AlertTriangle, Scale, Gauge } from "lucide-react";
+import {
+  Upload, Plus, Trash2, Download, RefreshCw, FileSpreadsheet,
+  Settings, AlertTriangle, Scale, Gauge, ChevronDown, ChevronRight,
+  Search, Users, BookOpen, ClipboardList, GraduationCap, X, Filter
+} from "lucide-react";
 import * as XLSX from "xlsx";
 
 const CLASSROOMS = [
@@ -23,33 +27,23 @@ const CLASSROOMS = [
 
 const normalizeSheetNameToClassroom = (sheetName: string): string | null => {
   const trimmed = sheetName.trim();
-
-  if (CLASSROOMS.includes(trimmed)) {
-    return trimmed;
-  }
-
+  if (CLASSROOMS.includes(trimmed)) return trimmed;
   const compact = trimmed.replace(/\s+/g, "");
   const slashMatch = compact.match(/^([2-6])\/([1-5])$/);
   if (slashMatch) {
     const classroom = `${slashMatch[1]}/${slashMatch[2]}`;
     return CLASSROOMS.includes(classroom) ? classroom : null;
   }
-
   const digitsOnly = compact.replace(/\D/g, "");
   if (digitsOnly.length === 2) {
     const classroom = `${digitsOnly[0]}/${digitsOnly[1]}`;
     return CLASSROOMS.includes(classroom) ? classroom : null;
   }
-
   return null;
 };
 
 const normalizeHeader = (key: string) =>
-  key
-    .replace(/^\uFEFF/, "")
-    .toLowerCase()
-    .replace(/\s+/g, "")
-    .replace(/[-_]/g, "");
+  key.replace(/^\uFEFF/, "").toLowerCase().replace(/\s+/g, "").replace(/[-_]/g, "");
 
 const matchesHeader = (key: string, patterns: RegExp[]) => {
   const normalized = normalizeHeader(key);
@@ -78,27 +72,15 @@ const parseExcelRow = (
   );
   const parsedNumber = Number(numberValue);
   const number = Number.isFinite(parsedNumber) ? parsedNumber : fallbackNumber;
-
   if (!studentId || !name) return null;
-
-  // Classroom is derived from the sheet name because Excel often auto-formats
-  // the "ชั้น" column as a date (for example 2/1 -> 2026-01-01T17:00:00.000Z).
-  // The workbook's sheet name is the reliable classroom source.
   return { studentId, name, number };
 };
 
 const buildHeaderMap = (headerRow: any[]): Record<string, string | null> => {
-  const map: Record<string, string | null> = {
-    studentId: null,
-    number: null,
-    name: null,
-    classroom: null,
-  };
-
+  const map: Record<string, string | null> = { studentId: null, number: null, name: null, classroom: null };
   headerRow.forEach((header, index) => {
     const key = typeof header === "string" ? header : String(header ?? "");
     if (!key) return;
-
     const column = XLSX.utils.encode_col(index);
     if (matchesHeader(key, [/เลขประจำตัว/, /รหัสประจำตัว/, /รหัสนักเรียน/, /studentid/, /id/])) {
       map.studentId = column;
@@ -110,9 +92,52 @@ const buildHeaderMap = (headerRow: any[]): Record<string, string | null> => {
       map.classroom = column;
     }
   });
-
   return map;
 };
+
+// Accordion component
+function AccordionSection({
+  title,
+  icon,
+  isOpen,
+  onToggle,
+  badge,
+  children,
+  danger = false,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  isOpen: boolean;
+  onToggle: () => void;
+  badge?: string;
+  children: React.ReactNode;
+  danger?: boolean;
+}) {
+  return (
+    <div className={`rounded-2xl border ${danger ? "border-red-100" : "border-slate-200"} bg-white overflow-hidden shadow-sm transition-all`}>
+      <button
+        onClick={onToggle}
+        className={`w-full flex items-center justify-between px-4 py-3.5 text-left transition-colors ${
+          danger ? "hover:bg-red-50/50" : "hover:bg-slate-50"
+        }`}
+      >
+        <div className="flex items-center gap-2.5">
+          <span className={danger ? "text-red-500" : "text-orange-500"}>{icon}</span>
+          <span className={`text-sm font-bold ${danger ? "text-red-800" : "text-slate-800"}`}>{title}</span>
+          {badge && (
+            <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full">{badge}</span>
+          )}
+        </div>
+        {isOpen ? (
+          <ChevronDown className={`h-4 w-4 ${danger ? "text-red-400" : "text-slate-400"}`} />
+        ) : (
+          <ChevronRight className={`h-4 w-4 ${danger ? "text-red-400" : "text-slate-400"}`} />
+        )}
+      </button>
+      {isOpen && <div className="px-4 pb-4 pt-1 border-t border-slate-50">{children}</div>}
+    </div>
+  );
+}
 
 export default function AdminPage() {
   const { session } = useAuth();
@@ -130,8 +155,6 @@ export default function AdminPage() {
   const [previewByClassroom, setPreviewByClassroom] = useState<Record<string, Student[]>>({});
   const [previewSkippedSheets, setPreviewSkippedSheets] = useState<string[]>([]);
   const [previewEmptySheets, setPreviewEmptySheets] = useState<string[]>([]);
-
-
 
   // Settings
   const [spreadsheetUrl, setSpreadsheetUrl] = useState<string>("");
@@ -173,14 +196,7 @@ export default function AdminPage() {
 
   // Modals & Forms
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [newStudent, setNewStudent] = useState({
-    studentId: "",
-    name: "",
-    number: "",
-    classroom: "2/1",
-  });
-
-
+  const [newStudent, setNewStudent] = useState({ studentId: "", name: "", number: "", classroom: "2/1" });
 
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
@@ -190,6 +206,14 @@ export default function AdminPage() {
   const [isDeleteAllAttendanceOpen, setIsDeleteAllAttendanceOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Accordion states (all collapsed by default)
+  const [accordionImport, setAccordionImport] = useState(false);
+  const [accordionDeduction, setAccordionDeduction] = useState(false);
+  const [accordionDanger, setAccordionDanger] = useState(false);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Load spreadsheet URL on mount
   useEffect(() => {
@@ -212,7 +236,6 @@ export default function AdminPage() {
     try {
       const res = await api.getStudents(selectedClassroom);
       if (res.success) {
-        // Sort students by seat number
         const sorted = (res.students || []).sort((a, b) => (a.number || 0) - (b.number || 0));
         setClassroomStudents(sorted);
       } else {
@@ -229,23 +252,14 @@ export default function AdminPage() {
   const loadAllStudents = useCallback(async () => {
     setLoading(true);
     try {
-      // Bulk endpoint: reduces dozens of Apps Script calls to one
       const res = await api.getAllStudents();
-      if (!res.success) {
-        throw new Error("ไม่สามารถโหลดรายชื่อนักเรียนทั้งหมดได้");
-      }
-
-      const merged = (res.students || []).map((s) => ({
-        ...s,
-        classroom: (s as any).classroom,
-      }));
-
+      if (!res.success) throw new Error("ไม่สามารถโหลดรายชื่อนักเรียนทั้งหมดได้");
+      const merged = (res.students || []).map((s) => ({ ...s, classroom: (s as any).classroom }));
       merged.sort((a, b) => {
         const classroomCompare = a.classroom.localeCompare(b.classroom, undefined, { numeric: true });
         if (classroomCompare !== 0) return classroomCompare;
         return (a.number || 0) - (b.number || 0);
       });
-
       setAllStudents(merged);
     } catch (err: any) {
       console.error(err);
@@ -254,7 +268,6 @@ export default function AdminPage() {
       setLoading(false);
     }
   }, [showToast]);
-
 
   useEffect(() => {
     if (viewMode === "all") {
@@ -267,6 +280,17 @@ export default function AdminPage() {
   const displayedStudents = viewMode === "all" ? allStudents : classroomStudents;
   const canEditCurrentView = viewMode === "classroom";
 
+  // Filtered students by search
+  const filteredStudents = useMemo(() => {
+    if (!searchQuery.trim()) return displayedStudents;
+    const q = searchQuery.trim().toLowerCase();
+    return displayedStudents.filter((s: any) =>
+      String(s.studentId).toLowerCase().includes(q) ||
+      String(s.name).toLowerCase().includes(q) ||
+      String(s.number).includes(q)
+    );
+  }, [displayedStudents, searchQuery]);
+
   const parseExcelFileForPreview = async (file: File): Promise<{
     importedByClassroom: Record<string, Student[]>;
     skippedSheets: string[];
@@ -274,63 +298,40 @@ export default function AdminPage() {
   }> => {
     const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
       const reader = new FileReader();
-
-      reader.onerror = () => {
-        reject(new Error("Failed to read file"));
-      };
-
+      reader.onerror = () => reject(new Error("Failed to read file"));
       reader.onload = () => {
         const result = reader.result;
-        if (!(result instanceof ArrayBuffer)) {
-          reject(new Error("Invalid file data"));
-          return;
-        }
+        if (!(result instanceof ArrayBuffer)) { reject(new Error("Invalid file data")); return; }
         resolve(result);
       };
-
       reader.readAsArrayBuffer(file);
     });
 
     const workbook = XLSX.read(arrayBuffer, { type: "array" });
-
     const importedMap = new Map<string, Student[]>();
     const skippedSheets: string[] = [];
     const emptySheets: string[] = [];
 
     workbook.SheetNames.forEach((sheetName) => {
       const classroom = normalizeSheetNameToClassroom(sheetName);
-      if (!classroom) {
-        skippedSheets.push(sheetName);
-        return;
-      }
-
+      if (!classroom) { skippedSheets.push(sheetName); return; }
       const sheet = workbook.Sheets[sheetName];
       const aoa: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
-      if (aoa.length < 2) {
-        emptySheets.push(sheetName);
-        return;
-      }
-
+      if (aoa.length < 2) { emptySheets.push(sheetName); return; }
       const headerMap = buildHeaderMap(aoa[0] || []);
       const rows = aoa.slice(1);
       const parsedStudents = rows
         .map((row, index) => {
           const rowObj: Record<string, any> = {};
-          row.forEach((cellValue, cellIndex) => {
-            rowObj[XLSX.utils.encode_col(cellIndex)] = cellValue;
-          });
-
-          // Preserve named headers when available, but always keep A:D access as fallback.
+          row.forEach((cellValue, cellIndex) => { rowObj[XLSX.utils.encode_col(cellIndex)] = cellValue; });
           (aoa[0] || []).forEach((header, cellIndex) => {
             if (!header) return;
             rowObj[String(header)] = row[cellIndex];
           });
-
           return parseExcelRow(rowObj, index + 1, headerMap);
         })
         .filter((item): item is Student => Boolean(item))
         .sort((a, b) => a.number - b.number);
-
       if (parsedStudents.length > 0) {
         importedMap.set(classroom, parsedStudents);
       } else {
@@ -338,24 +339,17 @@ export default function AdminPage() {
       }
     });
 
-    if (importedMap.size === 0) {
-      throw new Error("ไม่พบ sheet ห้องเรียนที่รองรับในไฟล์นี้");
-    }
+    if (importedMap.size === 0) throw new Error("ไม่พบ sheet ห้องเรียนที่รองรับในไฟล์นี้");
 
     const importedByClassroom: Record<string, Student[]> = {};
-    importedMap.forEach((list, cls) => {
-      importedByClassroom[cls] = list;
-    });
-
+    importedMap.forEach((list, cls) => { importedByClassroom[cls] = list; });
     return { importedByClassroom, skippedSheets, emptySheets };
   };
 
   const processExcelFile = async (file: File): Promise<void> => {
     if (loading) return;
-
     setLoading(true);
     setDragActive(false);
-
     try {
       const result = await parseExcelFileForPreview(file);
       setPreviewByClassroom(result.importedByClassroom);
@@ -367,78 +361,51 @@ export default function AdminPage() {
       showToast(err?.message || "ไฟล์ Excel รูปแบบไม่ถูกต้อง ไม่สามารถนำเข้าได้", "error");
     } finally {
       setLoading(false);
-
-      // Clear input (preserve existing UX behavior)
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-
+      if (fileInputRef.current) fileInputRef.current.value = "";
       setDragActive(false);
     }
   };
 
   const handleConfirmExcelPreviewSave = async () => {
     if (loading) return;
-
     setLoading(true);
     try {
       const classrooms = Object.keys(previewByClassroom);
-      if (classrooms.length === 0) {
-        showToast("ไม่มีข้อมูลที่จะบันทึก", "warning");
-        return;
-      }
-
-
+      if (classrooms.length === 0) { showToast("ไม่มีข้อมูลที่จะบันทึก", "warning"); return; }
       let successCount = 0;
       const failedClassrooms: string[] = [];
-
       for (const classroom of classrooms) {
         const parsedStudents = previewByClassroom[classroom] || [];
         const res = await api.saveStudents(classroom, parsedStudents);
         if (res.success) successCount += 1;
         else failedClassrooms.push(classroom);
       }
-
       const sheetList = classrooms.join(", ");
       const warnings = [
         previewSkippedSheets.length > 0 ? `ข้าม sheet: ${previewSkippedSheets.join(", ")}` : "",
         previewEmptySheets.length > 0 ? `sheet ว่าง/ไม่ครบข้อมูล: ${previewEmptySheets.join(", ")}` : "",
         failedClassrooms.length > 0 ? `บันทึกไม่สำเร็จ: ${failedClassrooms.join(", ")}` : "",
       ].filter(Boolean);
-
       showToast(
-        `นำเข้าข้อมูลสำเร็จ ${successCount} ห้อง (${sheetList})` +
-          (warnings.length ? ` | ${warnings.join(" | ")}` : ""),
-        failedClassrooms.length > 0 ? "warning" : "success",
-        5000
+        `นำเข้าข้อมูลสำเร็จ ${successCount} ห้อง (${sheetList})` + (warnings.length ? ` | ${warnings.join(" | ")}` : ""),
+        failedClassrooms.length > 0 ? "warning" : "success", 5000
       );
-
       if (viewMode === "all") await loadAllStudents();
       else await loadStudents();
-
-      // Close preview modal automatically after saving
       setIsPreviewOpen(false);
     } catch (err: any) {
       console.error(err);
       showToast(err?.message || "เกิดข้อผิดพลาดในการบันทึกข้อมูล", "error");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-
-  // Bulk Excel Import (input change)
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (loading) return;
-
     const file = e.target.files?.[0];
     if (!file) return;
-
     void processExcelFile(file);
   };
 
-
-  // Push to server
   const handleSaveAll = async () => {
     setLoading(true);
     try {
@@ -446,68 +413,41 @@ export default function AdminPage() {
       if (res.success) {
         showToast(`บันทึกรายชื่อนักเรียนห้อง ${selectedClassroom} ไปยังเซิร์ฟเวอร์เรียบร้อย!`, "success");
         loadStudents();
-      } else {
-        throw new Error("บันทึกล้มเหลว");
-      }
+      } else throw new Error("บันทึกล้มเหลว");
     } catch (err: any) {
       console.error(err);
       showToast(err.message || "เกิดข้อผิดพลาดในการบันทึก", "error");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  // Trigger manual add
   const handleManualAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canEditCurrentView) {
       showToast("โหมดแสดงผลรวมทุกห้องเป็นแบบอ่านอย่างเดียว กรุณาสลับกลับไปโหมดรายห้องเพื่อแก้ไข", "warning");
       return;
     }
-
     if (!newStudent.studentId || !newStudent.name || !newStudent.number || !newStudent.classroom) {
       showToast("กรุณากรอกข้อมูลให้ครบทุกช่อง", "warning");
       return;
     }
-
     const targetClassroom = newStudent.classroom;
-
-    // If user picked another classroom, switch UI to that room before mutating local table
     if (targetClassroom !== selectedClassroom) {
       setSelectedClassroom(targetClassroom);
-      // Ensure local table is for the right classroom
       await loadStudents();
     }
-
     const sNum = parseInt(newStudent.number, 10);
-    const item: Student = {
-      studentId: newStudent.studentId.trim(),
-      name: newStudent.name.trim(),
-      number: isNaN(sNum) ? 99 : sNum,
-    };
-
-    // Check duplicate ID in local memory (for the target classroom)
+    const item: Student = { studentId: newStudent.studentId.trim(), name: newStudent.name.trim(), number: isNaN(sNum) ? 99 : sNum };
     if (classroomStudents.some((s) => String(s.studentId).trim() === item.studentId)) {
       showToast(`รหัสนักเรียน ${item.studentId} ซ้ำกับในตารางห้อง ${targetClassroom}`, "error");
       return;
     }
-
     const updated = [...classroomStudents, item].sort((a, b) => a.number - b.number);
     setClassroomStudents(updated);
-
-    setNewStudent({
-      studentId: "",
-      name: "",
-      number: "",
-      classroom: targetClassroom,
-    });
-
+    setNewStudent({ studentId: "", name: "", number: "", classroom: targetClassroom });
     setIsAddOpen(false);
     showToast("เพิ่มนักเรียนชั่วคราวลงในตารางของห้องที่เลือกแล้ว (กดบันทึกเพื่อบันทึกจริง)", "success");
   };
 
-
-  // Trigger single delete (direct server delete + reload)
   const confirmDelete = async () => {
     if (!studentToDelete) return;
     if (!canEditCurrentView) {
@@ -523,7 +463,6 @@ export default function AdminPage() {
         setStudentToDelete(null);
         loadStudents();
       } else {
-        // If not saved on server yet (just in local table memory), delete locally
         const updated = classroomStudents.filter((s) => s.studentId !== studentToDelete.studentId);
         setClassroomStudents(updated);
         showToast("ลบรายการออกจากตารางชั่วคราวสำเร็จ", "success");
@@ -531,18 +470,14 @@ export default function AdminPage() {
         setStudentToDelete(null);
       }
     } catch (err: any) {
-      // Direct local delete as fallback if failed on server
       const updated = classroomStudents.filter((s) => s.studentId !== studentToDelete.studentId);
       setClassroomStudents(updated);
       showToast("ลบข้อมูลชั่วคราวเรียบร้อย", "success");
       setIsDeleteOpen(false);
       setStudentToDelete(null);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  // Clear memory roster
   const confirmClear = () => {
     if (!canEditCurrentView) {
       showToast("โหมดแสดงผลรวมทุกห้องเป็นแบบอ่านอย่างเดียว กรุณาสลับกลับไปโหมดรายห้องเพื่อแก้ไข", "warning");
@@ -561,15 +496,9 @@ export default function AdminPage() {
         showToast(res.message, "success");
         if (viewMode === "all") await loadAllStudents();
         else await loadStudents();
-      } else {
-        showToast(res.message, "error");
-      }
-    } catch (err: any) {
-      showToast("เกิดข้อผิดพลาดในการลบข้อมูล", "error");
-    } finally {
-      setLoading(false);
-      setIsDeleteAllStudentsOpen(false);
-    }
+      } else showToast(res.message, "error");
+    } catch (err: any) { showToast("เกิดข้อผิดพลาดในการลบข้อมูล", "error"); }
+    finally { setLoading(false); setIsDeleteAllStudentsOpen(false); }
   };
 
   const handleClearAllAttendance = async () => {
@@ -579,668 +508,628 @@ export default function AdminPage() {
       const res2 = await api.deleteAllUniformChecks();
       if (res1.success && res2.success) {
         showToast("ลบข้อมูลการเช็กชื่อและระเบียบวินัยทั้งหมดสำเร็จ", "success");
-      } else {
-        showToast("เกิดข้อผิดพลาดในการลบข้อมูล", "error");
-      }
-    } catch (err: any) {
-      showToast("เกิดข้อผิดพลาดในการลบข้อมูล", "error");
-    } finally {
-      setLoading(false);
-      setIsDeleteAllAttendanceOpen(false);
-    }
+      } else showToast("เกิดข้อผิดพลาดในการลบข้อมูล", "error");
+    } catch (err: any) { showToast("เกิดข้อผิดพลาดในการลบข้อมูล", "error"); }
+    finally { setLoading(false); setIsDeleteAllAttendanceOpen(false); }
   };
 
-  // Template Excel Download helper
   const downloadTemplate = () => {
     const wb = XLSX.utils.book_new();
     const headers = [["เลขประจำตัว", "เลขที่", "ชื่อ - สกุล", "ชั้น"]];
-
     const sampleSheets = [
       { sheetName: "21", classroom: "2/1" },
       { sheetName: "22", classroom: "2/2" },
       { sheetName: "31", classroom: "3/1" },
     ];
-
     sampleSheets.forEach((item, index) => {
       const ws = XLSX.utils.aoa_to_sheet([
         ...headers,
-        [
-          `68${String(index + 1).padStart(4, "0")}`,
-          1,
-          `ตัวอย่างนักเรียนห้อง ${item.classroom}`,
-          item.classroom,
-        ],
+        [`68${String(index + 1).padStart(4, "0")}`, 1, `ตัวอย่างนักเรียนห้อง ${item.classroom}`, item.classroom],
       ]);
       XLSX.utils.book_append_sheet(wb, ws, item.sheetName);
     });
-
     XLSX.writeFile(wb, `student_import_template.xlsx`);
     showToast("ดาวน์โหลดไฟล์แม่แบบหลายห้องเรียบร้อย", "success");
   };
 
+  // Compute summary stats
+  const totalUniqueStudents = useMemo(() => {
+    if (viewMode === "all") return allStudents.length;
+    return classroomStudents.length;
+  }, [viewMode, allStudents, classroomStudents]);
+
+  const totalClassrooms = CLASSROOMS.length;
+  const currentClassroom = viewMode === "all" ? "ทุกห้อง" : selectedClassroom;
+
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-slate-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
-      {/* Header Panel */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-orange-950 flex items-center gap-2">
-            <Settings className="h-6 w-6 text-orange-600" /> จัดการข้อมูลนักเรียน (Admin)
-          </h2>
-          <p className="text-gray-500 text-xs mt-1">
-            นำเข้าไฟล์รายชื่อนักเรียน แก้ไข ลบ และเชื่อมต่อฐานข้อมูล Google Sheets
-          </p>
+        {/* ===== ROW 1: Page Header ===== */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+              จัดการข้อมูลนักเรียน
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">
+              นำเข้า แก้ไข และจัดการข้อมูลนักเรียน
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={() => setIsAddOpen(true)}
+              className="h-10 px-5 text-sm font-bold rounded-xl shadow-sm shadow-orange-100 bg-orange-500 hover:bg-orange-600 text-white"
+            >
+              <Plus className="h-4 w-4" /> เพิ่มนักเรียน
+            </Button>
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              variant="outline"
+              className="h-10 px-5 text-sm font-bold rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50"
+            >
+              <Upload className="h-4 w-4" /> นำเข้า Excel
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+          </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* ===== ROW 2: Statistics Cards ===== */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <Card className="border-slate-100 shadow-sm rounded-2xl bg-white">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-orange-50 text-orange-600 shrink-0">
+                <Users className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">นักเรียนทั้งหมด</p>
+                <p className="text-xl font-bold text-slate-900 mt-0.5">{totalUniqueStudents} คน</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-slate-100 shadow-sm rounded-2xl bg-white">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600 shrink-0">
+                <BookOpen className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">ห้องเรียนทั้งหมด</p>
+                <p className="text-xl font-bold text-slate-900 mt-0.5">{totalClassrooms} ห้อง</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-slate-100 shadow-sm rounded-2xl bg-white">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 shrink-0">
+                <GraduationCap className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">ห้องที่กำลังดู</p>
+                <p className="text-xl font-bold text-slate-900 mt-0.5">{currentClassroom}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-slate-100 shadow-sm rounded-2xl bg-white">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-violet-50 text-violet-600 shrink-0">
+                <ClipboardList className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">รายการล่าสุด</p>
+                <p className="text-xl font-bold text-slate-900 mt-0.5">{displayedStudents.length} คน</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-        {/* Left column options */}
-        <div className="space-y-6 lg:col-span-1">
+        {/* ===== ROW 3: Main Workspace ===== */}
+        <div className="grid grid-cols-1 xl:grid-cols-[300px_1fr] gap-6">
 
+          {/* Left Sidebar - Sticky Accordions */}
+          <div className="space-y-3 xl:sticky xl:top-6 xl:self-start">
 
-          {/* Import Roster Card */}
-          <Card className="border-orange-100 shadow-sm bg-white">
-            <CardHeader className="bg-orange-50/50 pb-4 border-b border-orange-50">
-              <CardTitle className="text-orange-950 font-bold text-base flex items-center gap-2">
-                <Upload className="h-4.5 w-4.5 text-orange-600" />
-                นำเข้าข้อมูลนักเรียน
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-5 space-y-4">
-
-              <CardContent className="p-5 flex flex-col gap-2">
-                <Button onClick={() => setIsAddOpen(true)} variant="outline" className="w-full text-sm font-bold border-orange-200 flex items-center justify-center gap-2">
-                  <Plus className="h-4 w-4 text-orange-600" /> เพิ่มนักเรียนแบบกำหนดเอง
-                </Button>
-              </CardContent>
-
-              <div className="space-y-2">
-                <span className="text-xs font-bold text-gray-500 block">
-                  อัปโหลดไฟล์ Excel (.xlsx)
-                </span>
-
+            {/* Accordion 1: Import */}
+            <AccordionSection
+              title="นำเข้าข้อมูลนักเรียน"
+              icon={<Upload className="h-4 w-4" />}
+              isOpen={accordionImport}
+              onToggle={() => setAccordionImport(!accordionImport)}
+            >
+              <div className="space-y-3">
                 <div
                   onClick={() => fileInputRef.current?.click()}
-                  onDragEnter={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (!loading) setDragActive(true);
-                  }}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (!loading) setDragActive(true);
-                  }}
-                  onDragLeave={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setDragActive(false);
-                  }}
+                  onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); if (!loading) setDragActive(true); }}
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); if (!loading) setDragActive(true); }}
+                  onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setDragActive(false); }}
                   onDrop={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-
+                    e.preventDefault(); e.stopPropagation();
                     setDragActive(false);
                     const file = e.dataTransfer.files?.[0];
                     if (!file) return;
-
                     void processExcelFile(file);
                   }}
-
                   className={`
-                    group flex flex-col items-center justify-center gap-3
-                    border-2 border-dashed rounded-2xl p-8 cursor-pointer transition-all
-                    ${
-                      dragActive
-                        ? "border-orange-500 bg-orange-100 scale-[1.01]"
-                        : "border-orange-300 bg-orange-50/50 hover:border-orange-500 hover:bg-orange-50"
-                    }
+                    flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl p-5 cursor-pointer transition-all
+                    ${dragActive ? "border-orange-500 bg-orange-50" : "border-slate-200 bg-slate-50/50 hover:border-orange-300 hover:bg-orange-50/30"}
                   `}
                   role="button"
                   tabIndex={0}
                 >
-                  <div className="h-12 w-12 rounded-full bg-orange-100 flex items-center justify-center">
-                    <Upload className="h-6 w-6 text-orange-600" />
+                  <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
+                    <Upload className="h-5 w-5 text-orange-500" />
                   </div>
-
                   <div className="text-center">
-                    <p className="font-semibold text-gray-800">
-                      ลากไฟล์มาวางที่นี่
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      หรือ <span className="text-orange-600 font-semibold">คลิกเพื่อเลือกไฟล์</span>
-                    </p>
+                    <p className="text-sm font-semibold text-slate-700">ลากไฟล์มาวางที่นี่</p>
+                    <p className="text-xs text-slate-400">หรือคลิกเพื่อเลือกไฟล์</p>
                   </div>
-
-                  <p className="text-xs text-gray-400">
-                    รองรับ .xlsx และ .xls
-                  </p>
+                  <p className="text-[10px] text-slate-400">รองรับ .xlsx และ .xls</p>
                 </div>
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".xlsx,.xls"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-
-                <p className="text-[11px] text-gray-500 leading-relaxed">
-                  รองรับไฟล์ที่มีหลาย Sheet ต่อห้องเรียน โดยใช้ชื่อ Sheet เช่น{" "}
-                  <strong>21</strong> = ห้อง <strong>2/1</strong>,{" "}
-                  <strong>22</strong> = ห้อง <strong>2/2</strong> และอ่านคอลัมน์{" "}
-                  <strong>เลขประจำตัว, เลขที่, ชื่อ - สกุล, ชั้น</strong>
-                </p>
-              </div>
-
-              <div className="flex gap-2">
                 <Button
                   variant="outline"
                   onClick={downloadTemplate}
                   size="sm"
-                  className="w-full text-xs font-bold border-orange-200"
+                  className="w-full text-xs font-bold rounded-xl border-slate-200"
                 >
                   <Download className="h-3 w-3" /> โหลดไฟล์ตัวอย่าง
                 </Button>
+                <p className="text-[10px] text-slate-400 leading-relaxed">
+                  ชื่อ Sheet เช่น <strong>21</strong> = ห้อง <strong>2/1</strong>
+                </p>
               </div>
+            </AccordionSection>
 
-            </CardContent>
-          </Card>
-
-          {/* Deduction Settings Card */}
-          <Card className="border-violet-100 shadow-sm bg-white">
-            <CardHeader className="bg-violet-50/50 pb-4 border-b border-violet-50">
-              <CardTitle className="text-violet-950 font-bold text-base flex items-center gap-2">
-                <Scale className="h-4.5 w-4.5 text-violet-600" />
-                การตั้งค่าการหักคะแนนระเบียบวินัย
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-5 flex flex-col gap-3">
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600 font-semibold">การแต่งกาย</span>
-                  <span className="font-bold text-violet-700">-{deductionSettings.uniformDeduction} คะแนน</span>
+            {/* Accordion 2: Deduction Settings */}
+            <AccordionSection
+              title="ตั้งค่าการหักคะแนน"
+              icon={<Scale className="h-4 w-4" />}
+              isOpen={accordionDeduction}
+              onToggle={() => setAccordionDeduction(!accordionDeduction)}
+            >
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-600 font-medium">การแต่งกาย</span>
+                    <span className="font-bold text-violet-600">-{deductionSettings.uniformDeduction}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-600 font-medium">ทรงผม</span>
+                    <span className="font-bold text-violet-600">-{deductionSettings.hairDeduction}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-600 font-medium">เล็บมือ</span>
+                    <span className="font-bold text-violet-600">-{deductionSettings.nailDeduction}</span>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600 font-semibold">ทรงผม</span>
-                  <span className="font-bold text-violet-700">-{deductionSettings.hairDeduction} คะแนน</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600 font-semibold">เล็บมือ</span>
-                  <span className="font-bold text-violet-700">-{deductionSettings.nailDeduction} คะแนน</span>
-                </div>
+                <Button
+                  onClick={openDeductionDialog}
+                  size="sm"
+                  className="w-full text-xs font-bold rounded-xl bg-violet-500 text-violet-700 border border-violet-200 hover:bg-violet-100"
+                >
+                  <Gauge className="h-3 w-3" /> แก้ไข
+                </Button>
               </div>
-              <Button onClick={openDeductionDialog} variant="outline" className="w-full text-sm font-bold border-violet-200 text-violet-700 hover:bg-violet-50 flex items-center justify-center gap-2 mt-1">
-                <Gauge className="h-4 w-4" /> แก้ไขค่าการหักคะแนน
-              </Button>
-              <p className="text-[11px] text-gray-500 leading-relaxed text-center">
-                ตั้งค่าคะแนนที่จะหักในแต่ละประเภทของระเบียบวินัย ค่าเริ่มต้น: แต่งกาย 10, ทรงผม 10, เล็บมือ 5
-              </p>
-            </CardContent>
-          </Card>
+            </AccordionSection>
 
-          {/* Danger Zone Card */}
-          <Card className="border-red-100 shadow-sm bg-white">
-            <CardHeader className="bg-red-50/50 pb-4 border-b border-red-50">
-              <CardTitle className="text-red-950 font-bold text-base flex items-center gap-2">
-                <AlertTriangle className="h-4.5 w-4.5 text-red-600" />
-                การจัดการขั้นสูง (Danger Zone)
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-5 flex flex-col gap-3">
-              <Button onClick={() => setIsDeleteAllStudentsOpen(true)} variant="outline" className="w-full text-sm font-bold border-red-200 text-red-600 hover:bg-red-50 flex items-center justify-center gap-2">
-                <Trash2 className="h-4 w-4" /> ลบรายชื่อนักเรียนทั้งหมด
-              </Button>
-              <Button onClick={() => setIsDeleteAllAttendanceOpen(true)} variant="outline" className="w-full text-sm font-bold border-red-200 text-red-600 hover:bg-red-50 flex items-center justify-center gap-2">
-                <Trash2 className="h-4 w-4" /> ลบข้อมูลการเช็กชื่อทั้งหมด
-              </Button>
-              <p className="text-[11px] text-gray-500 leading-relaxed text-center mt-2">
-                การลบข้อมูลในส่วนนี้จะเป็นการลบออกจากฐานข้อมูลอย่างถาวร โปรดใช้ความระมัดระวัง
-              </p>
-            </CardContent>
-          </Card>
-
-        </div>
-
-        {/* Right column - Main Roster list */}
-        <div className="lg:col-span-2">
-
-          <Card className="border-orange-100 shadow-sm bg-white overflow-hidden">
-            <CardHeader className="bg-orange-500/5 px-6 py-4 border-b border-orange-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <CardTitle className="text-orange-950 font-bold text-base flex items-center gap-2">
-                  <FileSpreadsheet className="h-5 w-5 text-orange-600" />
-                  {viewMode === "all" ? "รายชื่อนักเรียนทั้งหมดทุกห้อง" : `รายชื่อนักเรียนห้องเรียน ${selectedClassroom}`}
-                </CardTitle>
-                <CardDescription className="text-xs font-semibold text-gray-500">
-                  มีข้อมูลอยู่ในตารางขณะนี้: {displayedStudents.length} คน
-                </CardDescription>
+            {/* Accordion 3: Danger Zone */}
+            <AccordionSection
+              title="แก้ไขข้อมูลสำคัญ"
+              icon={<AlertTriangle className="h-4 w-4" />}
+              isOpen={accordionDanger}
+              onToggle={() => setAccordionDanger(!accordionDanger)}
+              danger
+            >
+              <div className="space-y-2">
+                <Button
+                  onClick={() => setIsDeleteAllStudentsOpen(true)}
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs font-bold rounded-xl border-red-200 text-red-600 hover:bg-red-50"
+                >
+                  <Trash2 className="h-3 w-3" /> ลบรายชื่อนักเรียนทั้งหมด
+                </Button>
+                <Button
+                  onClick={() => setIsDeleteAllAttendanceOpen(true)}
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs font-bold rounded-xl border-red-200 text-red-600 hover:bg-red-50"
+                >
+                  <Trash2 className="h-3 w-3" /> ลบข้อมูลการเช็กชื่อทั้งหมด
+                </Button>
               </div>
+            </AccordionSection>
 
-              <div className="flex flex-col sm:items-end gap-2">
-                <div className="inline-flex rounded-full border border-orange-200 bg-white p-1 shadow-sm">
+          </div>
+
+          {/* Right Content Area - Student Table (PRIMARY) */}
+          <div className="min-w-0">
+
+            {/* Toolbar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div className="flex items-center gap-2">
+                <div className="inline-flex rounded-full border border-slate-200 bg-white p-0.5 shadow-sm">
                   <button
                     type="button"
                     onClick={() => setViewMode("classroom")}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all ${viewMode === "classroom"
+                    className={`px-3.5 py-1.5 text-xs font-bold rounded-full transition-all ${
+                      viewMode === "classroom"
                         ? "bg-orange-500 text-white shadow-sm"
-                        : "text-gray-700 hover:bg-orange-50"
-                      }`}
+                        : "text-slate-600 hover:bg-slate-50"
+                    }`}
                   >
                     รายห้อง
                   </button>
                   <button
                     type="button"
                     onClick={() => setViewMode("all")}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all ${viewMode === "all"
+                    className={`px-3.5 py-1.5 text-xs font-bold rounded-full transition-all ${
+                      viewMode === "all"
                         ? "bg-orange-500 text-white shadow-sm"
-                        : "text-gray-700 hover:bg-orange-50"
-                      }`}
+                        : "text-slate-600 hover:bg-slate-50"
+                    }`}
                   >
                     ทุกห้อง
                   </button>
                 </div>
+                {viewMode === "classroom" && (
+                  <select
+                    value={selectedClassroom}
+                    onChange={(e) => setSelectedClassroom(e.target.value)}
+                    className="h-8 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  >
+                    {CLASSROOMS.map((cls) => (
+                      <option key={cls} value={cls}>ห้อง {cls}</option>
+                    ))}
+                  </select>
+                )}
+                {viewMode === "classroom" && canEditCurrentView && (
+                  <Button
+                    onClick={handleSaveAll}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs font-bold rounded-xl border-slate-200 text-slate-600"
+                    disabled={loading}
+                  >
+                    <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} /> บันทึก
+                  </Button>
+                )}
+              </div>
 
-                {viewMode === "classroom" ? (
-                  <div className="w-40">
-                    <select
-                      value={selectedClassroom}
-                      onChange={(e) => setSelectedClassroom(e.target.value)}
-                      className="h-9 w-full rounded-xl border border-orange-200 bg-white px-3 text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-400"
+              <div className="flex items-center gap-2">
+                {/* Search */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="ค้นหา รหัส หรือ ชื่อ..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="h-8 w-48 sm:w-56 rounded-xl border border-slate-200 bg-white pl-8 pr-8 text-xs font-medium text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                     >
-                      {CLASSROOMS.map((cls) => (
-                        <option key={cls} value={cls}>ห้องเรียน {cls}</option>
-                      ))}
-                    </select>
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+                <Button
+                  variant="ghost"
+                  onClick={() => { viewMode === "all" ? loadAllStudents() : loadStudents(); }}
+                  disabled={loading}
+                  size="sm"
+                  className="h-8 w-8 p-0 rounded-xl text-slate-400 hover:text-slate-700"
+                >
+                  <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                </Button>
+              </div>
+            </div>
+
+            {/* Student List Card */}
+            <Card className="border-slate-100 shadow-sm rounded-2xl bg-white overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileSpreadsheet className="h-5 w-5 text-orange-500" />
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800">
+                      {viewMode === "all" ? "รายชื่อนักเรียนทั้งหมดทุกห้อง" : `รายชื่อนักเรียนห้อง ${selectedClassroom}`}
+                    </h3>
+                    <p className="text-[11px] text-slate-400 font-medium">
+                      {filteredStudents.length !== displayedStudents.length
+                        ? `พบ ${filteredStudents.length} รายการ จาก ${displayedStudents.length} คน`
+                        : `ทั้งหมด ${displayedStudents.length} คน`
+                      }
+                    </p>
                   </div>
-                ) : (
-                  <div className="rounded-full bg-blue-50 border border-blue-100 px-3 py-1 text-[11px] font-bold text-blue-700">
-                    โหมดทุกห้องเป็นแบบอ่านอย่างเดียว
+                </div>
+                {viewMode === "all" && (
+                  <div className="rounded-full bg-blue-50 border border-blue-100 px-3 py-1 text-[10px] font-bold text-blue-700">
+                    อ่านอย่างเดียว
                   </div>
                 )}
               </div>
-            </CardHeader>
 
-            <CardContent className="p-0">
+              <CardContent className="p-0">
+                {loading ? (
+                  <div className="h-64 flex flex-col items-center justify-center">
+                    <div className="animate-spin rounded-full h-7 w-7 border-t-2 border-b-2 border-orange-400 mb-2.5" />
+                    <span className="text-slate-400 text-xs font-medium">กำลังโหลดข้อมูลนักเรียน...</span>
+                  </div>
+                ) : filteredStudents.length === 0 ? (
+                  <div className="py-14 px-8 text-center">
+                    <div className="inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-slate-100 mb-4">
+                      <Users className="h-7 w-7 text-slate-400" />
+                    </div>
+                    <h3 className="text-base font-bold text-slate-700 mb-1">ยังไม่มีข้อมูลนักเรียน</h3>
+                    <p className="text-sm text-slate-400 max-w-xs mx-auto leading-relaxed">
+                      {searchQuery ? "ไม่พบรายชื่อที่ตรงกับคำค้นหา" : 'กรุณาเพิ่มนักเรียนด้วยการ "นำเข้า Excel" หรือ "เพิ่มนักเรียน"'}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Desktop Table */}
+                    <div className="hidden sm:block overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-slate-100 bg-slate-50/80">
+                            <th className="px-4 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-16">เลขที่</th>
+                            <th className="px-4 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-32">รหัสนักเรียน</th>
+                            <th className="px-4 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">ชื่อ-นามสกุล</th>
+                            <th className="px-4 py-3.5 text-center text-xs font-bold text-slate-500 uppercase tracking-wider w-20">ห้อง</th>
+                            <th className="px-4 py-3.5 text-center text-xs font-bold text-slate-500 uppercase tracking-wider w-20">จัดการ</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                          {filteredStudents.map((student: any, idx: number) => (
+                            <tr
+                              key={student.studentId}
+                              className={`${idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"} hover:bg-orange-50/30 transition-colors`}
+                            >
+                              <td className="px-4 py-3.5 text-sm font-bold text-slate-400">{student.number}</td>
+                              <td className="px-4 py-3.5 font-mono text-sm font-semibold text-slate-600">{student.studentId}</td>
+                              <td className="px-4 py-3.5 text-sm font-semibold text-slate-800">{student.name}</td>
+                              <td className="px-4 py-3.5 text-center text-sm font-semibold text-slate-500">{student.classroom || selectedClassroom}</td>
+                              <td className="px-4 py-3.5 text-center">
+                                {canEditCurrentView ? (
+                                  <button
+                                    onClick={() => { setStudentToDelete(student); setIsDeleteOpen(true); }}
+                                    className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                    title="ลบนักเรียน"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                ) : (
+                                  <span className="text-[10px] text-slate-400 font-semibold">-</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
 
-              {loading ? (
-                <div className="h-64 flex flex-col items-center justify-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-orange-500 mb-2"></div>
-                  <span className="text-gray-400 text-xs font-semibold">กำลังโหลดข้อมูลนักเรียน...</span>
-                </div>
-              ) : displayedStudents.length === 0 ? (
-                <div className="p-12 text-center text-gray-400 text-xs font-bold space-y-1">
-                  <p>ยังไม่มีรายชื่อนักเรียนในห้องเรียนนี้</p>
-                  <p className="font-medium text-gray-400">กรุณาอัปโหลด Excel หรือกรอกเพิ่มด้วยตนเองด้านซ้าย</p>
-                </div>
-              ) : (
-                <>
-                  <div className="max-h-[500px] overflow-y-auto">
-                    <Table>
-                      <TableHeader className="sticky top-0 z-10 bg-orange-50">
-                        <TableRow>
-                          <TableHead className="w-16 text-center">เลขที่</TableHead>
-                          <TableHead className="w-32">รหัสประจำตัว</TableHead>
-                          <TableHead>ชื่อ - นามสกุล</TableHead>
-                          <TableHead className="w-24 text-center">ชั้น</TableHead>
-                          <TableHead className="w-20 text-center">จัดการ</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {displayedStudents.map((student: any) => (
-                          <TableRow key={student.studentId} className="hover:bg-orange-50/10">
-                            <TableCell className="text-center font-bold text-gray-500">
-                              {student.number}
-                            </TableCell>
-                            <TableCell className="font-mono font-semibold text-gray-600">
-                              {student.studentId}
-                            </TableCell>
-                            <TableCell className="font-semibold text-gray-800">
-                              {student.name}
-                            </TableCell>
-                            <TableCell className="text-center font-semibold text-gray-600">
-                              {student.classroom || selectedClassroom}
-                            </TableCell>
-                            <TableCell className="text-center">
+                    {/* Mobile Cards */}
+                    <div className="sm:hidden divide-y divide-slate-100">
+                      {filteredStudents.map((student: any) => (
+                        <div key={student.studentId} className="p-4 hover:bg-slate-50 transition-colors">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <span className="text-[11px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                                  #{student.number}
+                                </span>
+                                <span className="text-[11px] font-semibold text-slate-400">{student.classroom || selectedClassroom}</span>
+                              </div>
+                              <p className="text-sm font-bold text-slate-800 truncate">{student.name}</p>
+                              <p className="text-[11px] font-mono font-medium text-slate-400 mt-0.5">{student.studentId}</p>
+                            </div>
+                            <div className="shrink-0">
                               {canEditCurrentView ? (
                                 <button
-                                  onClick={() => {
-                                    setStudentToDelete(student);
-                                    setIsDeleteOpen(true);
-                                  }}
-                                  className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                                  onClick={() => { setStudentToDelete(student); setIsDeleteOpen(true); }}
+                                  className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </button>
-                              ) : (
-                                <span className="text-[10px] text-gray-400 font-bold">ดูอย่างเดียว</span>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
 
-                 
-                </>
-              )}
+                    {/* Footer */}
+                    <div className="px-4 py-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                      <span className="text-[11px] font-medium text-slate-400">
+                        แสดง {filteredStudents.length} รายการ
+                      </span>
+                      {!canEditCurrentView && viewMode === "all" && (
+                        <span className="text-[10px] text-slate-400 font-medium">สลับไปโหมดรายห้องเพื่อแก้ไข</span>
+                      )}
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
 
-            </CardContent>
-          </Card>
-
+          </div>
         </div>
+
+        {/* ===== All Dialogs (Preserved exactly) ===== */}
+
+        {/* Excel Preview dialog */}
+        <Dialog isOpen={isPreviewOpen} onClose={() => setIsPreviewOpen(false)} title="พรีวิวข้อมูลที่จะนำเข้า" description="ตรวจสอบข้อมูลก่อนกดยืนยันเพื่อบันทึกลงฐานข้อมูล">
+          <div className="max-h-[70vh] overflow-y-auto space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="rounded-xl border border-orange-100 bg-orange-50/40 p-3">
+                <div className="text-[11px] font-bold text-gray-500">จำนวนห้อง</div>
+                <div className="text-base font-extrabold text-orange-950">{Object.keys(previewByClassroom).length}</div>
+              </div>
+              <div className="rounded-xl border border-orange-100 bg-orange-50/40 p-3">
+                <div className="text-[11px] font-bold text-gray-500">จำนวนแถวรวม</div>
+                <div className="text-base font-extrabold text-orange-950">{Object.values(previewByClassroom).reduce((acc, list) => acc + (list?.length || 0), 0)}</div>
+              </div>
+              <div className="rounded-xl border border-orange-100 bg-orange-50/40 p-3">
+                <div className="text-[11px] font-bold text-gray-500">ไฟล์ที่ถูกข้าม/ว่าง</div>
+                <div className="text-base font-extrabold text-orange-950">{(previewSkippedSheets?.length || 0) + (previewEmptySheets?.length || 0)}</div>
+              </div>
+            </div>
+            {previewSkippedSheets.length > 0 && (
+              <div className="rounded-xl border border-amber-100 bg-amber-50/40 p-3">
+                <div className="text-sm font-bold text-amber-900">ข้าม sheet</div>
+                <div className="text-xs text-amber-900/80 font-semibold">{previewSkippedSheets.join(", ")}</div>
+              </div>
+            )}
+            {previewEmptySheets.length > 0 && (
+              <div className="rounded-xl border border-amber-100 bg-amber-50/40 p-3">
+                <div className="text-sm font-bold text-amber-900">sheet ว่าง/ไม่ครบข้อมูล</div>
+                <div className="text-xs text-amber-900/80 font-semibold">{previewEmptySheets.join(", ")}</div>
+              </div>
+            )}
+            {Object.entries(previewByClassroom).map(([classroom, students]) => (
+              <div key={classroom} className="space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm font-extrabold text-orange-950">ห้องเรียน {classroom}</div>
+                  <div className="text-[11px] font-bold text-gray-500">{students.length} คน</div>
+                </div>
+                <div className="border border-orange-100 rounded-xl overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-orange-50">
+                      <TableRow>
+                        <TableHead className="w-16 text-center">เลขที่</TableHead>
+                        <TableHead className="w-32">รหัสประจำตัว</TableHead>
+                        <TableHead>ชื่อ - นามสกุล</TableHead>
+                        <TableHead className="w-24 text-center">ชั้น</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {students.map((s) => (
+                        <TableRow key={`${classroom}:${s.studentId}`}>
+                          <TableCell className="text-center font-bold text-gray-600">{s.number}</TableCell>
+                          <TableCell className="font-mono font-semibold text-gray-600">{s.studentId}</TableCell>
+                          <TableCell className="font-semibold text-gray-800">{s.name}</TableCell>
+                          <TableCell className="text-center font-semibold text-gray-600">{classroom}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-6 flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => setIsPreviewOpen(false)} disabled={loading}>ยกเลิก</Button>
+            <Button variant="outline" size="sm" onClick={handleConfirmExcelPreviewSave} loading={loading} className="font-bold">ยืนยันบันทึกลงฐานข้อมูล</Button>
+          </div>
+        </Dialog>
+
+        {/* Manual Add dialog */}
+        <Dialog isOpen={isAddOpen} onClose={() => setIsAddOpen(false)} title="เพิ่มนักเรียนแบบระบุเอง">
+          <form onSubmit={handleManualAddSubmit} className="space-y-4">
+            <Select
+              label="เลือกชั้น"
+              value={newStudent.classroom ? newStudent.classroom.split("/")[0] : ""}
+              onChange={(e) => {
+                const level = e.target.value;
+                const levelNum = level ? Number(level) : 2;
+                const fallbackRoom = `${levelNum}/${1}`;
+                const nextClassroom = CLASSROOMS.includes(fallbackRoom as any) ? fallbackRoom : CLASSROOMS.filter((c) => c.startsWith(`${levelNum}/`))[0] || "2/1";
+                setNewStudent({ ...newStudent, classroom: nextClassroom });
+              }}
+              options={[
+                { value: "2", label: "ชั้น 2" },
+                { value: "3", label: "ชั้น 3" },
+                { value: "4", label: "ชั้น 4" },
+                { value: "5", label: "ชั้น 5" },
+                { value: "6", label: "ชั้น 6" },
+              ]}
+            />
+            <Select
+              label="เลือกห้อง"
+              value={newStudent.classroom}
+              onChange={(e) => setNewStudent({ ...newStudent, classroom: e.target.value })}
+              options={CLASSROOMS.filter((c) => {
+                const level = newStudent.classroom?.split("/")[0] || "2";
+                return c.startsWith(`${level}/`);
+              }).map((c) => ({ value: c, label: `ห้องเรียน ${c}` }))}
+            />
+            <Input label="รหัสประจำตัวนักเรียน" placeholder="เช่น 100101" value={newStudent.studentId} onChange={(e) => setNewStudent({ ...newStudent, studentId: e.target.value })} />
+            <Input label="ชื่อ - นามสกุล" placeholder="เช่น เด็กชายสมจิต สมหวัง" value={newStudent.name} onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })} />
+            <Input label="เลขที่" placeholder="เช่น 1" type="number" value={newStudent.number} onChange={(e) => setNewStudent({ ...newStudent, number: e.target.value })} />
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setIsAddOpen(false)}>ยกเลิก</Button>
+              <Button type="submit" size="sm" className="font-bold">เพิ่มลงตาราง</Button>
+            </div>
+          </form>
+        </Dialog>
+
+        {/* Delete confirmation dialog */}
+        <Dialog isOpen={isDeleteOpen} onClose={() => setIsDeleteOpen(false)} title="ยืนยันการลบนักเรียน" description="การดำเนินการนี้อาจส่งผลต่อข้อมูลบนฐานข้อมูลทันที">
+          <div className="space-y-3 font-semibold text-gray-800">
+            <p>คุณแน่ใจหรือไม่ที่จะลบนักเรียน:</p>
+            <div className="bg-red-50 border border-red-100 p-3.5 rounded-xl font-bold text-red-950">
+              {studentToDelete?.name} (รหัส: {studentToDelete?.studentId}, เลขที่: {studentToDelete?.number})
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" size="sm" onClick={() => setIsDeleteOpen(false)}>ยกเลิก</Button>
+            <Button variant="destructive" size="sm" onClick={confirmDelete} loading={loading}>ยืนยันลบข้อมูล</Button>
+          </div>
+        </Dialog>
+
+        {/* Clear confirmation dialog */}
+        <Dialog isOpen={isClearOpen} onClose={() => setIsClearOpen(false)} title="ยืนยันการล้างตารางชั่วคราว" description="การล้างตารางจะไม่เขียนบันทึกไปบนเซิร์ฟเวอร์จนกว่าคุณจะกดบันทึกจริง">
+          <p className="font-semibold text-gray-700">คุณแน่ใจหรือไม่ที่จะล้างตารางรายชื่อทั้งหมดบนหน้าจอนี้ชั่วคราว?</p>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" size="sm" onClick={() => setIsClearOpen(false)}>ยกเลิก</Button>
+            <Button variant="destructive" size="sm" onClick={confirmClear}>ล้างตาราง</Button>
+          </div>
+        </Dialog>
+
+        {/* Delete All Students Dialog */}
+        <Dialog isOpen={isDeleteAllStudentsOpen} onClose={() => setIsDeleteAllStudentsOpen(false)} title="ยืนยันการลบรายชื่อนักเรียนทั้งหมด" description="การดำเนินการนี้จะลบข้อมูลนักเรียนทั้งหมดจากฐานข้อมูลอย่างถาวร ไม่สามารถกู้คืนได้">
+          <p className="font-semibold text-red-600">คุณแน่ใจหรือไม่ที่จะลบรายชื่อนักเรียนของทุกห้อง?</p>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" size="sm" onClick={() => setIsDeleteAllStudentsOpen(false)}>ยกเลิก</Button>
+            <Button variant="destructive" size="sm" onClick={handleClearAllStudents} loading={loading}>ยืนยันการลบข้อมูล</Button>
+          </div>
+        </Dialog>
+
+        {/* Delete All Attendance Dialog */}
+        <Dialog isOpen={isDeleteAllAttendanceOpen} onClose={() => setIsDeleteAllAttendanceOpen(false)} title="ยืนยันการลบข้อมูลการเช็กชื่อทั้งหมด" description="การดำเนินการนี้จะลบข้อมูลการเช็กชื่อและการตรวจระเบียบวินัยทั้งหมดจากฐานข้อมูลอย่างถาวร ไม่สามารถกู้คืนได้">
+          <p className="font-semibold text-red-600">คุณแน่ใจหรือไม่ที่จะลบข้อมูลการมาเรียนและการแต่งกายของทุกห้อง?</p>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" size="sm" onClick={() => setIsDeleteAllAttendanceOpen(false)}>ยกเลิก</Button>
+            <Button variant="destructive" size="sm" onClick={handleClearAllAttendance} loading={loading}>ยืนยันการลบข้อมูล</Button>
+          </div>
+        </Dialog>
+
+        {/* Deduction Settings Dialog */}
+        <Dialog isOpen={isDeductionOpen} onClose={() => setIsDeductionOpen(false)} title="แก้ไขค่าการหักคะแนนระเบียบวินัย" description="กำหนดจำนวนคะแนนที่จะหักเมื่อนักเรียนตรวจไม่ผ่านในแต่ละประเภท">
+          <div className="space-y-5">
+            <div className="space-y-3">
+              <Input label="การแต่งกาย (คะแนนที่หักต่อครั้ง)" type="number" min={0} value={editDeductionSettings.uniformDeduction.toString()} onChange={(e) => setEditDeductionSettings({ ...editDeductionSettings, uniformDeduction: Math.max(0, parseInt(e.target.value) || 0) })} />
+              <Input label="ทรงผม (คะแนนที่หักต่อครั้ง)" type="number" min={0} value={editDeductionSettings.hairDeduction.toString()} onChange={(e) => setEditDeductionSettings({ ...editDeductionSettings, hairDeduction: Math.max(0, parseInt(e.target.value) || 0) })} />
+              <Input label="เล็บมือ (คะแนนที่หักต่อครั้ง)" type="number" min={0} value={editDeductionSettings.nailDeduction.toString()} onChange={(e) => setEditDeductionSettings({ ...editDeductionSettings, nailDeduction: Math.max(0, parseInt(e.target.value) || 0) })} />
+            </div>
+            <p className="text-xs text-gray-500">ค่าเริ่มต้น: แต่งกาย 10 คะแนน, ทรงผม 10 คะแนน, เล็บมือ 5 คะแนน</p>
+          </div>
+          <div className="flex justify-between gap-2 pt-4">
+            <Button variant="outline" size="sm" onClick={handleResetDeductionSettings}>รีเซ็ตเป็นค่าเริ่มต้น</Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setIsDeductionOpen(false)}>ยกเลิก</Button>
+              <Button size="sm" onClick={handleSaveDeductionSettings} className="font-bold">บันทึกการตั้งค่า</Button>
+            </div>
+          </div>
+        </Dialog>
 
       </div>
-
-      {/* Excel Preview dialog */}
-      <Dialog
-        isOpen={isPreviewOpen}
-        onClose={() => setIsPreviewOpen(false)}
-        title="พรีวิวข้อมูลที่จะนำเข้า"
-        description="ตรวจสอบข้อมูลก่อนกดยืนยันเพื่อบันทึกลงฐานข้อมูล"
-      >
-        <div className="max-h-[70vh] overflow-y-auto space-y-5">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="rounded-xl border border-orange-100 bg-orange-50/40 p-3">
-              <div className="text-[11px] font-bold text-gray-500">จำนวนห้อง</div>
-              <div className="text-base font-extrabold text-orange-950">
-                {Object.keys(previewByClassroom).length}
-              </div>
-            </div>
-            <div className="rounded-xl border border-orange-100 bg-orange-50/40 p-3">
-              <div className="text-[11px] font-bold text-gray-500">จำนวนแถวรวม</div>
-              <div className="text-base font-extrabold text-orange-950">
-                {Object.values(previewByClassroom).reduce((acc, list) => acc + (list?.length || 0), 0)}
-              </div>
-            </div>
-            <div className="rounded-xl border border-orange-100 bg-orange-50/40 p-3">
-              <div className="text-[11px] font-bold text-gray-500">ไฟล์ที่ถูกข้าม/ว่าง</div>
-              <div className="text-base font-extrabold text-orange-950">
-                {(previewSkippedSheets?.length || 0) + (previewEmptySheets?.length || 0)}
-              </div>
-            </div>
-          </div>
-
-          {previewSkippedSheets.length > 0 && (
-            <div className="rounded-xl border border-amber-100 bg-amber-50/40 p-3">
-              <div className="text-sm font-bold text-amber-900">ข้าม sheet</div>
-              <div className="text-xs text-amber-900/80 font-semibold">
-                {previewSkippedSheets.join(", ")}
-              </div>
-            </div>
-          )}
-
-          {previewEmptySheets.length > 0 && (
-            <div className="rounded-xl border border-amber-100 bg-amber-50/40 p-3">
-              <div className="text-sm font-bold text-amber-900">sheet ว่าง/ไม่ครบข้อมูล</div>
-              <div className="text-xs text-amber-900/80 font-semibold">
-                {previewEmptySheets.join(", ")}
-              </div>
-            </div>
-          )}
-
-          {Object.entries(previewByClassroom).map(([classroom, students]) => (
-            <div key={classroom} className="space-y-2">
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-sm font-extrabold text-orange-950">ห้องเรียน {classroom}</div>
-                <div className="text-[11px] font-bold text-gray-500">{students.length} คน</div>
-              </div>
-
-              <div className="border border-orange-100 rounded-xl overflow-hidden">
-                <Table>
-                  <TableHeader className="bg-orange-50">
-                    <TableRow>
-                      <TableHead className="w-16 text-center">เลขที่</TableHead>
-                      <TableHead className="w-32">รหัสประจำตัว</TableHead>
-                      <TableHead>ชื่อ - นามสกุล</TableHead>
-                      <TableHead className="w-24 text-center">ชั้น</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {students.map((s) => (
-                      <TableRow key={`${classroom}:${s.studentId}`}>
-                        <TableCell className="text-center font-bold text-gray-600">
-                          {s.number}
-                        </TableCell>
-                        <TableCell className="font-mono font-semibold text-gray-600">
-                          {s.studentId}
-                        </TableCell>
-                        <TableCell className="font-semibold text-gray-800">
-                          {s.name}
-                        </TableCell>
-                        <TableCell className="text-center font-semibold text-gray-600">
-                          {classroom}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-6 flex justify-end gap-2">
-          <Button variant="outline" size="sm" onClick={() => setIsPreviewOpen(false)} disabled={loading}>
-            ยกเลิก
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleConfirmExcelPreviewSave}
-            loading={loading}
-            className="font-bold"
-          >
-            ยืนยันบันทึกลงฐานข้อมูล
-          </Button>
-        </div>
-      </Dialog>
-
-      {/* Manual Add dialog */}
-      <Dialog
-        isOpen={isAddOpen}
-        onClose={() => setIsAddOpen(false)}
-        title="เพิ่มนักเรียนแบบระบุเอง"
-      >
-        <form onSubmit={handleManualAddSubmit} className="space-y-4">
-          <Select
-            label="เลือกชั้น"
-            value={newStudent.classroom ? newStudent.classroom.split("/")[0] : ""}
-            onChange={(e) => {
-              const level = e.target.value;
-              const levelNum = level ? Number(level) : 2;
-              const fallbackRoom = `${levelNum}/${1}`;
-              const nextClassroom =
-                CLASSROOMS.includes(fallbackRoom as any)
-                  ? fallbackRoom
-                  : CLASSROOMS.filter((c) => c.startsWith(`${levelNum}/`))[0] || "2/1";
-              setNewStudent({ ...newStudent, classroom: nextClassroom });
-            }}
-
-            options={[
-              { value: "2", label: "ชั้น 2" },
-              { value: "3", label: "ชั้น 3" },
-              { value: "4", label: "ชั้น 4" },
-              { value: "5", label: "ชั้น 5" },
-              { value: "6", label: "ชั้น 6" },
-            ]}
-          />
-
-          <Select
-            label="เลือกห้อง"
-            value={newStudent.classroom}
-            onChange={(e) => setNewStudent({ ...newStudent, classroom: e.target.value })}
-            options={CLASSROOMS.filter((c) => {
-              const level = newStudent.classroom?.split("/")[0] || "2";
-              return c.startsWith(`${level}/`);
-            }).map((c) => ({
-              value: c,
-              label: `ห้องเรียน ${c}`,
-            }))}
-          />
-
-
-          <Input
-            label="รหัสประจำตัวนักเรียน"
-            placeholder="เช่น 100101"
-            value={newStudent.studentId}
-            onChange={(e) => setNewStudent({ ...newStudent, studentId: e.target.value })}
-          />
-          <Input
-            label="ชื่อ - นามสกุล"
-            placeholder="เช่น เด็กชายสมจิต สมหวัง"
-            value={newStudent.name}
-            onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })}
-          />
-          <Input
-            label="เลขที่"
-            placeholder="เช่น 1"
-            type="number"
-            value={newStudent.number}
-            onChange={(e) => setNewStudent({ ...newStudent, number: e.target.value })}
-          />
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => setIsAddOpen(false)}>
-              ยกเลิก
-            </Button>
-            <Button type="submit" size="sm" className="font-bold">
-              เพิ่มลงตาราง
-            </Button>
-          </div>
-        </form>
-      </Dialog>
-
-
-      {/* Delete confirmation dialog */}
-      <Dialog
-        isOpen={isDeleteOpen}
-        onClose={() => setIsDeleteOpen(false)}
-        title="ยืนยันการลบนักเรียน"
-        description="การดำเนินการนี้อาจส่งผลต่อข้อมูลบนฐานข้อมูลทันที"
-      >
-        <div className="space-y-3 font-semibold text-gray-800">
-          <p>คุณแน่ใจหรือไม่ที่จะลบนักเรียน:</p>
-          <div className="bg-red-50 border border-red-100 p-3.5 rounded-xl font-bold text-red-950">
-            {studentToDelete?.name} (รหัส: {studentToDelete?.studentId}, เลขที่: {studentToDelete?.number})
-          </div>
-        </div>
-        <div className="flex justify-end gap-2 pt-4">
-          <Button variant="outline" size="sm" onClick={() => setIsDeleteOpen(false)}>
-            ยกเลิก
-          </Button>
-          <Button variant="destructive" size="sm" onClick={confirmDelete} loading={loading}>
-            ยืนยันลบข้อมูล
-          </Button>
-        </div>
-      </Dialog>
-
-      {/* Clear confirmation dialog */}
-      <Dialog
-        isOpen={isClearOpen}
-        onClose={() => setIsClearOpen(false)}
-        title="ยืนยันการล้างตารางชั่วคราว"
-        description="การล้างตารางจะไม่เขียนบันทึกไปบนเซิร์ฟเวอร์จนกว่าคุณจะกดบันทึกจริง"
-      >
-        <p className="font-semibold text-gray-700">คุณแน่ใจหรือไม่ที่จะล้างตารางรายชื่อทั้งหมดบนหน้าจอนี้ชั่วคราว?</p>
-        <div className="flex justify-end gap-2 pt-4">
-          <Button variant="outline" size="sm" onClick={() => setIsClearOpen(false)}>
-            ยกเลิก
-          </Button>
-          <Button variant="destructive" size="sm" onClick={confirmClear}>
-            ล้างตาราง
-          </Button>
-        </div>
-      </Dialog>
-
-      {/* Delete All Students Dialog */}
-      <Dialog
-        isOpen={isDeleteAllStudentsOpen}
-        onClose={() => setIsDeleteAllStudentsOpen(false)}
-        title="ยืนยันการลบรายชื่อนักเรียนทั้งหมด"
-        description="การดำเนินการนี้จะลบข้อมูลนักเรียนทั้งหมดจากฐานข้อมูลอย่างถาวร ไม่สามารถกู้คืนได้"
-      >
-        <p className="font-semibold text-red-600">คุณแน่ใจหรือไม่ที่จะลบรายชื่อนักเรียนของทุกห้อง?</p>
-        <div className="flex justify-end gap-2 pt-4">
-          <Button variant="outline" size="sm" onClick={() => setIsDeleteAllStudentsOpen(false)}>
-            ยกเลิก
-          </Button>
-          <Button variant="destructive" size="sm" onClick={handleClearAllStudents} loading={loading}>
-            ยืนยันการลบข้อมูล
-          </Button>
-        </div>
-      </Dialog>
-
-      {/* Delete All Attendance Dialog */}
-      <Dialog
-        isOpen={isDeleteAllAttendanceOpen}
-        onClose={() => setIsDeleteAllAttendanceOpen(false)}
-        title="ยืนยันการลบข้อมูลการเช็กชื่อทั้งหมด"
-        description="การดำเนินการนี้จะลบข้อมูลการเช็กชื่อและการตรวจระเบียบวินัยทั้งหมดจากฐานข้อมูลอย่างถาวร ไม่สามารถกู้คืนได้"
-      >
-        <p className="font-semibold text-red-600">คุณแน่ใจหรือไม่ที่จะลบข้อมูลการมาเรียนและการแต่งกายของทุกห้อง?</p>
-        <div className="flex justify-end gap-2 pt-4">
-          <Button variant="outline" size="sm" onClick={() => setIsDeleteAllAttendanceOpen(false)}>
-            ยกเลิก
-          </Button>
-          <Button variant="destructive" size="sm" onClick={handleClearAllAttendance} loading={loading}>
-            ยืนยันการลบข้อมูล
-          </Button>
-        </div>
-      </Dialog>
-
-      {/* Deduction Settings Dialog */}
-      <Dialog
-        isOpen={isDeductionOpen}
-        onClose={() => setIsDeductionOpen(false)}
-        title="แก้ไขค่าการหักคะแนนระเบียบวินัย"
-        description="กำหนดจำนวนคะแนนที่จะหักเมื่อนักเรียนตรวจไม่ผ่านในแต่ละประเภท"
-      >
-        <div className="space-y-5">
-          <div className="space-y-3">
-            <Input
-              label="การแต่งกาย (คะแนนที่หักต่อครั้ง)"
-              type="number"
-              min={0}
-              value={editDeductionSettings.uniformDeduction.toString()}
-              onChange={(e) => setEditDeductionSettings({ ...editDeductionSettings, uniformDeduction: Math.max(0, parseInt(e.target.value) || 0) })}
-            />
-            <Input
-              label="ทรงผม (คะแนนที่หักต่อครั้ง)"
-              type="number"
-              min={0}
-              value={editDeductionSettings.hairDeduction.toString()}
-              onChange={(e) => setEditDeductionSettings({ ...editDeductionSettings, hairDeduction: Math.max(0, parseInt(e.target.value) || 0) })}
-            />
-            <Input
-              label="เล็บมือ (คะแนนที่หักต่อครั้ง)"
-              type="number"
-              min={0}
-              value={editDeductionSettings.nailDeduction.toString()}
-              onChange={(e) => setEditDeductionSettings({ ...editDeductionSettings, nailDeduction: Math.max(0, parseInt(e.target.value) || 0) })}
-            />
-          </div>
-          <p className="text-xs text-gray-500">
-            ค่าเริ่มต้น: แต่งกาย 10 คะแนน, ทรงผม 10 คะแนน, เล็บมือ 5 คะแนน
-          </p>
-        </div>
-        <div className="flex justify-between gap-2 pt-4">
-          <Button variant="outline" size="sm" onClick={handleResetDeductionSettings}>
-            รีเซ็ตเป็นค่าเริ่มต้น
-          </Button>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setIsDeductionOpen(false)}>
-              ยกเลิก
-            </Button>
-            <Button size="sm" onClick={handleSaveDeductionSettings} className="font-bold">
-              บันทึกการตั้งค่า
-            </Button>
-          </div>
-        </div>
-      </Dialog>
-
     </div>
   );
 }
