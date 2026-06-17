@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { api, Student, UniformCheckRecord, getDeductionSettings, DeductionSettings } from "@/lib/api";
+import { api, Student, UniformCheckRecord, DeductionSettings } from "@/lib/api";
 import {
   CLASSROOMS,
   ALL_CLASSROOMS_VALUE,
@@ -87,8 +87,24 @@ export default function UniformStatisticsPage() {
   const [customStartDate, setCustomStartDate] = useState<string>("");
   const [customEndDate, setCustomEndDate] = useState<string>("");
 
-  // Deduction settings from localStorage
-  const [deductionSettings, setDeductionSettings] = useState<DeductionSettings>(() => getDeductionSettings());
+  // Deduction settings from database
+  const [deductionSettings, setDeductionSettings] = useState<DeductionSettings>({ uniformDeduction: 10, hairDeduction: 10, nailDeduction: 5 });
+
+  // Load deduction settings from database
+  const loadDeductionSettings = useCallback(async () => {
+    try {
+      const res = await api.getDeductionSettings();
+      if (res.success && res.settings) {
+        setDeductionSettings(res.settings);
+      }
+    } catch (err) {
+      console.error("Error loading deduction settings:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadDeductionSettings();
+  }, [loadDeductionSettings]);
 
   const [selectedClassroom, setSelectedClassroom] = useState<string>(
     session.role === "admin" ? ALL_CLASSROOMS_VALUE : session.classroomLock || "2/1"

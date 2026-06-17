@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { api, Student, getDeductionSettings, saveDeductionSettings, resetDeductionSettings, DeductionSettings } from "@/lib/api";
+import { api, Student, DeductionSettings } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,7 @@ import { useToast } from "@/components/ui/toast";
 import {
   Upload, Plus, Trash2, Download, RefreshCw, FileSpreadsheet,
   Settings, AlertTriangle, Scale, Gauge, ChevronDown, ChevronRight,
-  Search, Users, BookOpen, ClipboardList, GraduationCap, X, Filter
+  Search, Users, BookOpen, ClipboardList, GraduationCap, X, Pencil, Save
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -159,39 +159,59 @@ export default function AdminPage() {
   // Settings
   const [spreadsheetUrl, setSpreadsheetUrl] = useState<string>("");
 
-  // Deduction settings
-  const [deductionSettings, setDeductionSettings] = useState<DeductionSettings>(() => getDeductionSettings());
+  // Deduction settings (load from database on mount)
+  const [deductionSettings, setDeductionSettings] = useState<DeductionSettings>({ uniformDeduction: 10, hairDeduction: 10, nailDeduction: 5 });
   const [isDeductionOpen, setIsDeductionOpen] = useState(false);
   const [editDeductionSettings, setEditDeductionSettings] = useState<DeductionSettings>({ uniformDeduction: 10, hairDeduction: 10, nailDeduction: 5 });
+
+  // Load deduction settings from database
+  const loadDeductionSettings = useCallback(async () => {
+    try {
+      const res = await api.getDeductionSettings();
+      if (res.success && res.settings) {
+        setDeductionSettings(res.settings);
+      }
+    } catch (err) {
+      console.error("Error loading deduction settings:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadDeductionSettings();
+  }, [loadDeductionSettings]);
 
   const openDeductionDialog = () => {
     setEditDeductionSettings({ ...deductionSettings });
     setIsDeductionOpen(true);
   };
 
-  const handleSaveDeductionSettings = () => {
+  const handleSaveDeductionSettings = async () => {
     const s = editDeductionSettings;
     if (s.uniformDeduction < 0 || s.hairDeduction < 0 || s.nailDeduction < 0) {
       showToast("ค่าหักคะแนนต้องเป็นตัวเลขมากกว่าหรือเท่ากับ 0", "warning");
       return;
     }
-    const success = saveDeductionSettings(s);
-    if (success) {
+    const res = await api.saveDeductionSettings(s);
+    if (res.success) {
       setDeductionSettings(s);
       showToast("บันทึกการตั้งค่าการหักคะแนนระเบียบวินัยเรียบร้อย", "success");
       setIsDeductionOpen(false);
     } else {
-      showToast("เกิดข้อผิดพลาดในการบันทึก", "error");
+      showToast(res.message || "เกิดข้อผิดพลาดในการบันทึก", "error");
     }
   };
 
-  const handleResetDeductionSettings = () => {
-    resetDeductionSettings();
-    const defaults = getDeductionSettings();
-    setDeductionSettings(defaults);
-    setEditDeductionSettings(defaults);
-    showToast("รีเซ็ตการตั้งค่าเป็นค่ามาตรฐานแล้ว", "info");
-    setIsDeductionOpen(false);
+  const handleResetDeductionSettings = async () => {
+    const defaults: DeductionSettings = { uniformDeduction: 10, hairDeduction: 10, nailDeduction: 5 };
+    const res = await api.saveDeductionSettings(defaults);
+    if (res.success) {
+      setDeductionSettings(defaults);
+      setEditDeductionSettings(defaults);
+      showToast("รีเซ็ตการตั้งค่าเป็นค่ามาตรฐานแล้ว", "success");
+      setIsDeductionOpen(false);
+    } else {
+      showToast(res.message || "เกิดข้อผิดพลาดในการรีเซ็ต", "error");
+    }
   };
 
   // Modals & Forms
@@ -199,7 +219,11 @@ export default function AdminPage() {
   const [newStudent, setNewStudent] = useState({ studentId: "", name: "", number: "", classroom: "2/1" });
 
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+  const [studentToDelete, setStudentToDelete] = useState<Student & { classroom?: string } | null>(null);
+
+  // Edit state
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<Student & { classroom?: string }>({ studentId: "", name: "", number: 0, classroom: "2/1" });
 
   const [isClearOpen, setIsClearOpen] = useState(false);
   const [isDeleteAllStudentsOpen, setIsDeleteAllStudentsOpen] = useState(false);
@@ -214,6 +238,9 @@ export default function AdminPage() {
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Always editable - no read-only mode
+  const canEditCurrentView = true;
 
   // Load spreadsheet URL on mount
   useEffect(() => {
@@ -278,7 +305,6 @@ export default function AdminPage() {
   }, [selectedClassroom, loadAllStudents, loadStudents, viewMode]);
 
   const displayedStudents = viewMode === "all" ? allStudents : classroomStudents;
-  const canEditCurrentView = viewMode === "classroom";
 
   // Filtered students by search
   const filteredStudents = useMemo(() => {
@@ -422,10 +448,6 @@ export default function AdminPage() {
 
   const handleManualAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canEditCurrentView) {
-      showToast("โหมดแสดงผลรวมทุกห้องเป็นแบบอ่านอย่างเดียว กรุณาสลับกลับไปโหมดรายห้องเพื่อแก้ไข", "warning");
-      return;
-    }
     if (!newStudent.studentId || !newStudent.name || !newStudent.number || !newStudent.classroom) {
       showToast("กรุณากรอกข้อมูลให้ครบทุกช่อง", "warning");
       return;
@@ -450,39 +472,75 @@ export default function AdminPage() {
 
   const confirmDelete = async () => {
     if (!studentToDelete) return;
-    if (!canEditCurrentView) {
-      showToast("โหมดแสดงผลรวมทุกห้องเป็นแบบอ่านอย่างเดียว กรุณาสลับกลับไปโหมดรายห้องเพื่อแก้ไข", "warning");
-      return;
-    }
+    const targetClassroom = studentToDelete.classroom || selectedClassroom;
+
     setLoading(true);
     try {
-      const res = await api.deleteStudent(selectedClassroom, studentToDelete.studentId);
+      const res = await api.deleteStudent(targetClassroom, studentToDelete.studentId);
       if (res.success) {
         showToast(res.message || "ลบนักเรียนสำเร็จ", "success");
-        setIsDeleteOpen(false);
-        setStudentToDelete(null);
-        loadStudents();
       } else {
-        const updated = classroomStudents.filter((s) => s.studentId !== studentToDelete.studentId);
-        setClassroomStudents(updated);
+        // Local delete fallback
+        if (viewMode === "all") {
+          setAllStudents((prev) => prev.filter((s) => s.studentId !== studentToDelete.studentId));
+        } else {
+          setClassroomStudents((prev) => prev.filter((s) => s.studentId !== studentToDelete.studentId));
+        }
         showToast("ลบรายการออกจากตารางชั่วคราวสำเร็จ", "success");
-        setIsDeleteOpen(false);
-        setStudentToDelete(null);
       }
+      setIsDeleteOpen(false);
+      setStudentToDelete(null);
+      if (viewMode === "all") await loadAllStudents();
+      else await loadStudents();
     } catch (err: any) {
-      const updated = classroomStudents.filter((s) => s.studentId !== studentToDelete.studentId);
-      setClassroomStudents(updated);
+      if (viewMode === "all") {
+        setAllStudents((prev) => prev.filter((s) => s.studentId !== studentToDelete.studentId));
+      } else {
+        setClassroomStudents((prev) => prev.filter((s) => s.studentId !== studentToDelete.studentId));
+      }
       showToast("ลบข้อมูลชั่วคราวเรียบร้อย", "success");
       setIsDeleteOpen(false);
       setStudentToDelete(null);
     } finally { setLoading(false); }
   };
 
-  const confirmClear = () => {
-    if (!canEditCurrentView) {
-      showToast("โหมดแสดงผลรวมทุกห้องเป็นแบบอ่านอย่างเดียว กรุณาสลับกลับไปโหมดรายห้องเพื่อแก้ไข", "warning");
+  // Edit handlers
+  const openEditDialog = (student: Student & { classroom?: string }) => {
+    setEditingStudent({ ...student });
+    setIsEditOpen(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const s = editingStudent;
+    if (!s.studentId || !s.name || !s.number) {
+      showToast("กรุณากรอกข้อมูลให้ครบทุกช่อง", "warning");
       return;
     }
+
+    const editClassroom = s.classroom || selectedClassroom;
+
+    if (viewMode === "all") {
+      // Update allStudents locally
+      setAllStudents((prev) =>
+        prev.map((st) =>
+          st.studentId === s.studentId ? { ...st, studentId: s.studentId, name: s.name, number: s.number } : st
+        )
+      );
+      showToast("แก้ไขข้อมูลนักเรียนเรียบร้อย (บันทึกในหน่วยความจำ)", "success");
+    } else {
+      // Update classroomStudents
+      setClassroomStudents((prev) =>
+        prev.map((st) =>
+          st.studentId === s.studentId ? { studentId: s.studentId, name: s.name, number: s.number } : st
+        )
+      );
+      showToast("แก้ไขข้อมูลนักเรียนเรียบร้อย (กดบันทึกเพื่อบันทึกลงฐานข้อมูล)", "success");
+    }
+    setIsEditOpen(false);
+  };
+
+  const confirmClear = () => {
     setClassroomStudents([]);
     setIsClearOpen(false);
     showToast("เคลียร์รายชื่อนักเรียนออกจากตารางชั่วคราวแล้ว", "info");
@@ -685,7 +743,7 @@ export default function AdminPage() {
 
             {/* Accordion 2: Deduction Settings */}
             <AccordionSection
-              title="ตั้งค่าการหักคะแนน"
+              title="ตั้งค่าการหักคะแนนระเบียบวินัย"
               icon={<Scale className="h-4 w-4" />}
               isOpen={accordionDeduction}
               onToggle={() => setAccordionDeduction(!accordionDeduction)}
@@ -775,26 +833,33 @@ export default function AdminPage() {
                     ทุกห้อง
                   </button>
                 </div>
+                <select
+                  value={viewMode === "all" ? "all" : selectedClassroom}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "all") {
+                      setViewMode("all");
+                    } else {
+                      if (viewMode === "all") setViewMode("classroom");
+                      setSelectedClassroom(val);
+                    }
+                  }}
+                  className="h-8 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-300"
+                >
+                  <option value="all">ทุกห้อง</option>
+                  {CLASSROOMS.map((cls) => (
+                    <option key={cls} value={cls}>ห้อง {cls}</option>
+                  ))}
+                </select>
                 {viewMode === "classroom" && (
-                  <select
-                    value={selectedClassroom}
-                    onChange={(e) => setSelectedClassroom(e.target.value)}
-                    className="h-8 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-300"
-                  >
-                    {CLASSROOMS.map((cls) => (
-                      <option key={cls} value={cls}>ห้อง {cls}</option>
-                    ))}
-                  </select>
-                )}
-                {viewMode === "classroom" && canEditCurrentView && (
                   <Button
                     onClick={handleSaveAll}
                     variant="outline"
                     size="sm"
-                    className="text-xs font-bold rounded-xl border-slate-200 text-slate-600"
+                    className="text-xs font-bold rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50"
                     disabled={loading}
                   >
-                    <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} /> บันทึก
+                    <Save className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} /> บันทึก
                   </Button>
                 )}
               </div>
@@ -848,11 +913,6 @@ export default function AdminPage() {
                     </p>
                   </div>
                 </div>
-                {viewMode === "all" && (
-                  <div className="rounded-full bg-blue-50 border border-blue-100 px-3 py-1 text-[10px] font-bold text-blue-700">
-                    อ่านอย่างเดียว
-                  </div>
-                )}
               </div>
 
               <CardContent className="p-0">
@@ -882,7 +942,7 @@ export default function AdminPage() {
                             <th className="px-4 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-32">รหัสนักเรียน</th>
                             <th className="px-4 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">ชื่อ-นามสกุล</th>
                             <th className="px-4 py-3.5 text-center text-xs font-bold text-slate-500 uppercase tracking-wider w-20">ห้อง</th>
-                            <th className="px-4 py-3.5 text-center text-xs font-bold text-slate-500 uppercase tracking-wider w-20">จัดการ</th>
+                            <th className="px-4 py-3.5 text-center text-xs font-bold text-slate-500 uppercase tracking-wider w-32">จัดการ</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
@@ -896,7 +956,14 @@ export default function AdminPage() {
                               <td className="px-4 py-3.5 text-sm font-semibold text-slate-800">{student.name}</td>
                               <td className="px-4 py-3.5 text-center text-sm font-semibold text-slate-500">{student.classroom || selectedClassroom}</td>
                               <td className="px-4 py-3.5 text-center">
-                                {canEditCurrentView ? (
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    onClick={() => openEditDialog(student)}
+                                    className="p-1.5 text-slate-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors"
+                                    title="แก้ไขนักเรียน"
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </button>
                                   <button
                                     onClick={() => { setStudentToDelete(student); setIsDeleteOpen(true); }}
                                     className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
@@ -904,9 +971,7 @@ export default function AdminPage() {
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </button>
-                                ) : (
-                                  <span className="text-[10px] text-slate-400 font-semibold">-</span>
-                                )}
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -929,15 +994,19 @@ export default function AdminPage() {
                               <p className="text-sm font-bold text-slate-800 truncate">{student.name}</p>
                               <p className="text-[11px] font-mono font-medium text-slate-400 mt-0.5">{student.studentId}</p>
                             </div>
-                            <div className="shrink-0">
-                              {canEditCurrentView ? (
-                                <button
-                                  onClick={() => { setStudentToDelete(student); setIsDeleteOpen(true); }}
-                                  className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              ) : null}
+                            <div className="shrink-0 flex items-center gap-1">
+                              <button
+                                onClick={() => openEditDialog(student)}
+                                className="p-2 text-slate-400 hover:text-orange-500 hover:bg-orange-50 rounded-xl transition-colors"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => { setStudentToDelete(student); setIsDeleteOpen(true); }}
+                                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -949,8 +1018,8 @@ export default function AdminPage() {
                       <span className="text-[11px] font-medium text-slate-400">
                         แสดง {filteredStudents.length} รายการ
                       </span>
-                      {!canEditCurrentView && viewMode === "all" && (
-                        <span className="text-[10px] text-slate-400 font-medium">สลับไปโหมดรายห้องเพื่อแก้ไข</span>
+                      {viewMode === "classroom" && (
+                        <span className="text-[10px] text-slate-400 font-medium">กดบันทึกเพื่อบันทึกลงฐานข้อมูล</span>
                       )}
                     </div>
                   </>
@@ -961,7 +1030,7 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* ===== All Dialogs (Preserved exactly) ===== */}
+        {/* ===== All Dialogs ===== */}
 
         {/* Excel Preview dialog */}
         <Dialog isOpen={isPreviewOpen} onClose={() => setIsPreviewOpen(false)} title="พรีวิวข้อมูลที่จะนำเข้า" description="ตรวจสอบข้อมูลก่อนกดยืนยันเพื่อบันทึกลงฐานข้อมูล">
@@ -1023,9 +1092,9 @@ export default function AdminPage() {
               </div>
             ))}
           </div>
-          <div className="mt-6 flex justify-end gap-2">
-            <Button variant="outline" size="sm" onClick={() => setIsPreviewOpen(false)} disabled={loading}>ยกเลิก</Button>
-            <Button variant="outline" size="sm" onClick={handleConfirmExcelPreviewSave} loading={loading} className="font-bold">ยืนยันบันทึกลงฐานข้อมูล</Button>
+          <div className="mt-6 flex justify-end gap-3">
+            <Button variant="outline" size="md" onClick={() => setIsPreviewOpen(false)} disabled={loading} className="px-6 py-2.5">ยกเลิก</Button>
+            <Button variant="primary" size="md" onClick={handleConfirmExcelPreviewSave} loading={loading} className="px-6 py-2.5 font-bold">ยืนยันบันทึกลงฐานข้อมูล</Button>
           </div>
         </Dialog>
 
@@ -1062,51 +1131,80 @@ export default function AdminPage() {
             <Input label="รหัสประจำตัวนักเรียน" placeholder="เช่น 100101" value={newStudent.studentId} onChange={(e) => setNewStudent({ ...newStudent, studentId: e.target.value })} />
             <Input label="ชื่อ - นามสกุล" placeholder="เช่น เด็กชายสมจิต สมหวัง" value={newStudent.name} onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })} />
             <Input label="เลขที่" placeholder="เช่น 1" type="number" value={newStudent.number} onChange={(e) => setNewStudent({ ...newStudent, number: e.target.value })} />
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => setIsAddOpen(false)}>ยกเลิก</Button>
-              <Button type="submit" size="sm" className="font-bold">เพิ่มลงตาราง</Button>
+            <div className="flex justify-end gap-3 pt-4">
+              <Button type="button" variant="outline" size="md" onClick={() => setIsAddOpen(false)} className="px-6 py-2.5">ยกเลิก</Button>
+              <Button type="submit" size="md" className="px-6 py-2.5 font-bold">เพิ่มลงตาราง</Button>
+            </div>
+          </form>
+        </Dialog>
+
+        {/* Edit Student Dialog */}
+        <Dialog isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} title="แก้ไขข้อมูลนักเรียน" description="แก้ไขรายละเอียดของนักเรียน">
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <Input
+              label="รหัสประจำตัวนักเรียน"
+              placeholder="เช่น 100101"
+              value={editingStudent.studentId}
+              onChange={(e) => setEditingStudent({ ...editingStudent, studentId: e.target.value })}
+            />
+            <Input
+              label="ชื่อ - นามสกุล"
+              placeholder="เช่น เด็กชายสมจิต สมหวัง"
+              value={editingStudent.name}
+              onChange={(e) => setEditingStudent({ ...editingStudent, name: e.target.value })}
+            />
+            <Input
+              label="เลขที่"
+              placeholder="เช่น 1"
+              type="number"
+              value={editingStudent.number.toString()}
+              onChange={(e) => setEditingStudent({ ...editingStudent, number: Math.max(1, parseInt(e.target.value) || 0) })}
+            />
+            <div className="flex justify-end gap-3 pt-4">
+              <Button type="button" variant="outline" size="md" onClick={() => setIsEditOpen(false)} className="px-6 py-2.5">ยกเลิก</Button>
+              <Button type="submit" size="md" className="px-6 py-2.5 font-bold">บันทึก</Button>
             </div>
           </form>
         </Dialog>
 
         {/* Delete confirmation dialog */}
-        <Dialog isOpen={isDeleteOpen} onClose={() => setIsDeleteOpen(false)} title="ยืนยันการลบนักเรียน" description="การดำเนินการนี้อาจส่งผลต่อข้อมูลบนฐานข้อมูลทันที">
+        <Dialog isOpen={isDeleteOpen} onClose={() => setIsDeleteOpen(false)} title="ยืนยันการลบนักเรียน" description="การดำเนินการนี้จะลบข้อมูลนักเรียนออกจากฐานข้อมูลทันที">
           <div className="space-y-3 font-semibold text-gray-800">
             <p>คุณแน่ใจหรือไม่ที่จะลบนักเรียน:</p>
             <div className="bg-red-50 border border-red-100 p-3.5 rounded-xl font-bold text-red-950">
               {studentToDelete?.name} (รหัส: {studentToDelete?.studentId}, เลขที่: {studentToDelete?.number})
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-4">
-            <Button variant="outline" size="sm" onClick={() => setIsDeleteOpen(false)}>ยกเลิก</Button>
-            <Button variant="destructive" size="sm" onClick={confirmDelete} loading={loading}>ยืนยันลบข้อมูล</Button>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button variant="outline" size="md" onClick={() => setIsDeleteOpen(false)} className="px-6 py-2.5">ยกเลิก</Button>
+            <Button variant="destructive" size="md" onClick={confirmDelete} loading={loading} className="px-6 py-2.5">ยืนยันลบข้อมูล</Button>
           </div>
         </Dialog>
 
         {/* Clear confirmation dialog */}
         <Dialog isOpen={isClearOpen} onClose={() => setIsClearOpen(false)} title="ยืนยันการล้างตารางชั่วคราว" description="การล้างตารางจะไม่เขียนบันทึกไปบนเซิร์ฟเวอร์จนกว่าคุณจะกดบันทึกจริง">
           <p className="font-semibold text-gray-700">คุณแน่ใจหรือไม่ที่จะล้างตารางรายชื่อทั้งหมดบนหน้าจอนี้ชั่วคราว?</p>
-          <div className="flex justify-end gap-2 pt-4">
-            <Button variant="outline" size="sm" onClick={() => setIsClearOpen(false)}>ยกเลิก</Button>
-            <Button variant="destructive" size="sm" onClick={confirmClear}>ล้างตาราง</Button>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button variant="outline" size="md" onClick={() => setIsClearOpen(false)} className="px-6 py-2.5">ยกเลิก</Button>
+            <Button variant="destructive" size="md" onClick={confirmClear} className="px-6 py-2.5">ล้างตาราง</Button>
           </div>
         </Dialog>
 
         {/* Delete All Students Dialog */}
         <Dialog isOpen={isDeleteAllStudentsOpen} onClose={() => setIsDeleteAllStudentsOpen(false)} title="ยืนยันการลบรายชื่อนักเรียนทั้งหมด" description="การดำเนินการนี้จะลบข้อมูลนักเรียนทั้งหมดจากฐานข้อมูลอย่างถาวร ไม่สามารถกู้คืนได้">
           <p className="font-semibold text-red-600">คุณแน่ใจหรือไม่ที่จะลบรายชื่อนักเรียนของทุกห้อง?</p>
-          <div className="flex justify-end gap-2 pt-4">
-            <Button variant="outline" size="sm" onClick={() => setIsDeleteAllStudentsOpen(false)}>ยกเลิก</Button>
-            <Button variant="destructive" size="sm" onClick={handleClearAllStudents} loading={loading}>ยืนยันการลบข้อมูล</Button>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button variant="outline" size="md" onClick={() => setIsDeleteAllStudentsOpen(false)} className="px-6 py-2.5">ยกเลิก</Button>
+            <Button variant="destructive" size="md" onClick={handleClearAllStudents} loading={loading} className="px-6 py-2.5">ยืนยันการลบข้อมูล</Button>
           </div>
         </Dialog>
 
         {/* Delete All Attendance Dialog */}
         <Dialog isOpen={isDeleteAllAttendanceOpen} onClose={() => setIsDeleteAllAttendanceOpen(false)} title="ยืนยันการลบข้อมูลการเช็กชื่อทั้งหมด" description="การดำเนินการนี้จะลบข้อมูลการเช็กชื่อและการตรวจระเบียบวินัยทั้งหมดจากฐานข้อมูลอย่างถาวร ไม่สามารถกู้คืนได้">
           <p className="font-semibold text-red-600">คุณแน่ใจหรือไม่ที่จะลบข้อมูลการมาเรียนและการแต่งกายของทุกห้อง?</p>
-          <div className="flex justify-end gap-2 pt-4">
-            <Button variant="outline" size="sm" onClick={() => setIsDeleteAllAttendanceOpen(false)}>ยกเลิก</Button>
-            <Button variant="destructive" size="sm" onClick={handleClearAllAttendance} loading={loading}>ยืนยันการลบข้อมูล</Button>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button variant="outline" size="md" onClick={() => setIsDeleteAllAttendanceOpen(false)} className="px-6 py-2.5">ยกเลิก</Button>
+            <Button variant="destructive" size="md" onClick={handleClearAllAttendance} loading={loading} className="px-6 py-2.5">ยืนยันการลบข้อมูล</Button>
           </div>
         </Dialog>
 
@@ -1120,11 +1218,11 @@ export default function AdminPage() {
             </div>
             <p className="text-xs text-gray-500">ค่าเริ่มต้น: แต่งกาย 10 คะแนน, ทรงผม 10 คะแนน, เล็บมือ 5 คะแนน</p>
           </div>
-          <div className="flex justify-between gap-2 pt-4">
-            <Button variant="outline" size="sm" onClick={handleResetDeductionSettings}>รีเซ็ตเป็นค่าเริ่มต้น</Button>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setIsDeductionOpen(false)}>ยกเลิก</Button>
-              <Button size="sm" onClick={handleSaveDeductionSettings} className="font-bold">บันทึกการตั้งค่า</Button>
+          <div className="flex justify-between gap-3 pt-4">
+            <Button variant="outline" size="md" onClick={handleResetDeductionSettings} className="px-5 py-2.5">รีเซ็ตเป็นค่าเริ่มต้น</Button>
+            <div className="flex gap-3">
+              <Button variant="outline" size="md" onClick={() => setIsDeductionOpen(false)} className="px-6 py-2.5">ยกเลิก</Button>
+              <Button size="md" onClick={handleSaveDeductionSettings} className="px-6 py-2.5 font-bold">บันทึกการตั้งค่า</Button>
             </div>
           </div>
         </Dialog>

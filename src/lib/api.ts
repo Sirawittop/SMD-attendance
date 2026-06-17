@@ -414,6 +414,77 @@ export const api = {
     }
     return { success: true, message: "ลบข้อมูลการตรวจระเบียบวินัยทั้งหมดสำเร็จ" };
   },
+
+  // ===== Deduction Settings (Database-backed) =====
+
+  getDeductionSettings: async (): Promise<{ success: boolean; settings: DeductionSettings | null }> => {
+    try {
+      const { data, error } = await supabase
+        .from('discipline_settings')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error) {
+        // Table might be empty, return defaults
+        if (error.code === 'PGRST116') {
+          return { success: true, settings: null };
+        }
+        console.error("Error fetching deduction settings:", error);
+        return { success: false, settings: null };
+      }
+
+      if (!data) {
+        return { success: true, settings: null };
+      }
+
+      return {
+        success: true,
+        settings: {
+          uniformDeduction: data.uniform_deduction ?? DEFAULT_DEDUCTION_SETTINGS.uniformDeduction,
+          hairDeduction: data.hair_deduction ?? DEFAULT_DEDUCTION_SETTINGS.hairDeduction,
+          nailDeduction: data.nail_deduction ?? DEFAULT_DEDUCTION_SETTINGS.nailDeduction,
+        },
+      };
+    } catch (err) {
+      console.error("Error getting deduction settings:", err);
+      return { success: false, settings: null };
+    }
+  },
+
+  saveDeductionSettings: async (settings: DeductionSettings): Promise<{ success: boolean; message: string }> => {
+    try {
+      // Delete all existing rows (we only keep one)
+      const { error: deleteError } = await supabase
+        .from('discipline_settings')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all rows
+
+      if (deleteError && deleteError.code !== 'PGRST116') {
+        console.error("Error deleting old settings:", deleteError);
+        // Continue anyway - try to insert
+      }
+
+      const { error: insertError } = await supabase
+        .from('discipline_settings')
+        .insert({
+          uniform_deduction: settings.uniformDeduction,
+          hair_deduction: settings.hairDeduction,
+          nail_deduction: settings.nailDeduction,
+        });
+
+      if (insertError) {
+        console.error("Error inserting deduction settings:", insertError);
+        return { success: false, message: "ไม่สามารถบันทึกข้อมูลลงฐานข้อมูลได้" };
+      }
+
+      return { success: true, message: "บันทึกการตั้งค่าการหักคะแนนระเบียบวินัยเรียบร้อย" };
+    } catch (err) {
+      console.error("Error saving deduction settings:", err);
+      return { success: false, message: "เกิดข้อผิดพลาดในการบันทึก" };
+    }
+  },
 };
 
 export interface DeductionSettings {
