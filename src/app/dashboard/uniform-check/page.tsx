@@ -118,7 +118,7 @@ export default function UniformCheckPage() {
 
     const incomplete = students.some(s => s.uniformPass === null || s.hairPass === null || s.nailPass === null);
     if (incomplete) {
-      showToast("กรุณาตรวจเครื่องแต่งกายให้ครบทุกคนก่อนบันทึก", "warning");
+      showToast("กรุณาตรวจระเบียบวินัยให้ครบทุกคนก่อนบันทึก", "warning");
       return;
     }
 
@@ -126,7 +126,7 @@ export default function UniformCheckPage() {
     try {
       const res = await api.saveUniformCheck(selectedClassroom, selectedDate, teacherName.trim(), students);
       if (res.success) {
-        showToast(`บันทึกข้อมูลการตรวจเครื่องแต่งกายห้อง ${selectedClassroom} สำเร็จ!`, "success", 0, "modal");
+        showToast(`บันทึกข้อมูลการตรวจระเบียบวินัยห้อง ${selectedClassroom} สำเร็จ!`, "success", 0, "modal");
         loadData();
       } else {
         throw new Error("การบันทึกล้มเหลว");
@@ -145,7 +145,7 @@ export default function UniformCheckPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-orange-950 flex items-center gap-2">
-            <UserCheck className="h-6 w-6 text-orange-600" /> ตรวจเครื่องแต่งกาย
+            <UserCheck className="h-6 w-6 text-orange-600" /> ตรวจระเบียบวินัยน
           </h2>
           <p className="text-gray-500 text-sm mt-1">
             ตรวจการแต่งกาย ทรงผม และเล็บมือ

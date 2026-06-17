@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { api, Student } from "@/lib/api";
+import { api, Student, getDeductionSettings, saveDeductionSettings, resetDeductionSettings, DeductionSettings } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
-import { Upload, Plus, Trash2, Save, Download, RefreshCw, FileSpreadsheet, Settings, AlertTriangle } from "lucide-react";
+import { Upload, Plus, Trash2, Save, Download, RefreshCw, FileSpreadsheet, Settings, AlertTriangle, Scale, Gauge } from "lucide-react";
 import * as XLSX from "xlsx";
 
 const CLASSROOMS = [
@@ -135,6 +135,41 @@ export default function AdminPage() {
 
   // Settings
   const [spreadsheetUrl, setSpreadsheetUrl] = useState<string>("");
+
+  // Deduction settings
+  const [deductionSettings, setDeductionSettings] = useState<DeductionSettings>(() => getDeductionSettings());
+  const [isDeductionOpen, setIsDeductionOpen] = useState(false);
+  const [editDeductionSettings, setEditDeductionSettings] = useState<DeductionSettings>({ uniformDeduction: 10, hairDeduction: 10, nailDeduction: 5 });
+
+  const openDeductionDialog = () => {
+    setEditDeductionSettings({ ...deductionSettings });
+    setIsDeductionOpen(true);
+  };
+
+  const handleSaveDeductionSettings = () => {
+    const s = editDeductionSettings;
+    if (s.uniformDeduction < 0 || s.hairDeduction < 0 || s.nailDeduction < 0) {
+      showToast("ค่าหักคะแนนต้องเป็นตัวเลขมากกว่าหรือเท่ากับ 0", "warning");
+      return;
+    }
+    const success = saveDeductionSettings(s);
+    if (success) {
+      setDeductionSettings(s);
+      showToast("บันทึกการตั้งค่าการหักคะแนนระเบียบวินัยเรียบร้อย", "success");
+      setIsDeductionOpen(false);
+    } else {
+      showToast("เกิดข้อผิดพลาดในการบันทึก", "error");
+    }
+  };
+
+  const handleResetDeductionSettings = () => {
+    resetDeductionSettings();
+    const defaults = getDeductionSettings();
+    setDeductionSettings(defaults);
+    setEditDeductionSettings(defaults);
+    showToast("รีเซ็ตการตั้งค่าเป็นค่ามาตรฐานแล้ว", "info");
+    setIsDeductionOpen(false);
+  };
 
   // Modals & Forms
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -543,7 +578,7 @@ export default function AdminPage() {
       const res1 = await api.deleteAllAttendance();
       const res2 = await api.deleteAllUniformChecks();
       if (res1.success && res2.success) {
-        showToast("ลบข้อมูลการเช็กชื่อและเครื่องแต่งกายทั้งหมดสำเร็จ", "success");
+        showToast("ลบข้อมูลการเช็กชื่อและระเบียบวินัยทั้งหมดสำเร็จ", "success");
       } else {
         showToast("เกิดข้อผิดพลาดในการลบข้อมูล", "error");
       }
@@ -710,6 +745,38 @@ export default function AdminPage() {
                 </Button>
               </div>
 
+            </CardContent>
+          </Card>
+
+          {/* Deduction Settings Card */}
+          <Card className="border-violet-100 shadow-sm bg-white">
+            <CardHeader className="bg-violet-50/50 pb-4 border-b border-violet-50">
+              <CardTitle className="text-violet-950 font-bold text-base flex items-center gap-2">
+                <Scale className="h-4.5 w-4.5 text-violet-600" />
+                การตั้งค่าการหักคะแนนระเบียบวินัย
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-5 flex flex-col gap-3">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600 font-semibold">การแต่งกาย</span>
+                  <span className="font-bold text-violet-700">-{deductionSettings.uniformDeduction} คะแนน</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600 font-semibold">ทรงผม</span>
+                  <span className="font-bold text-violet-700">-{deductionSettings.hairDeduction} คะแนน</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600 font-semibold">เล็บมือ</span>
+                  <span className="font-bold text-violet-700">-{deductionSettings.nailDeduction} คะแนน</span>
+                </div>
+              </div>
+              <Button onClick={openDeductionDialog} variant="outline" className="w-full text-sm font-bold border-violet-200 text-violet-700 hover:bg-violet-50 flex items-center justify-center gap-2 mt-1">
+                <Gauge className="h-4 w-4" /> แก้ไขค่าการหักคะแนน
+              </Button>
+              <p className="text-[11px] text-gray-500 leading-relaxed text-center">
+                ตั้งค่าคะแนนที่จะหักในแต่ละประเภทของระเบียบวินัย ค่าเริ่มต้น: แต่งกาย 10, ทรงผม 10, เล็บมือ 5
+              </p>
             </CardContent>
           </Card>
 
@@ -1111,7 +1178,7 @@ export default function AdminPage() {
         isOpen={isDeleteAllAttendanceOpen}
         onClose={() => setIsDeleteAllAttendanceOpen(false)}
         title="ยืนยันการลบข้อมูลการเช็กชื่อทั้งหมด"
-        description="การดำเนินการนี้จะลบข้อมูลการเช็กชื่อและการตรวจเครื่องแต่งกายทั้งหมดจากฐานข้อมูลอย่างถาวร ไม่สามารถกู้คืนได้"
+        description="การดำเนินการนี้จะลบข้อมูลการเช็กชื่อและการตรวจระเบียบวินัยทั้งหมดจากฐานข้อมูลอย่างถาวร ไม่สามารถกู้คืนได้"
       >
         <p className="font-semibold text-red-600">คุณแน่ใจหรือไม่ที่จะลบข้อมูลการมาเรียนและการแต่งกายของทุกห้อง?</p>
         <div className="flex justify-end gap-2 pt-4">
@@ -1121,6 +1188,56 @@ export default function AdminPage() {
           <Button variant="destructive" size="sm" onClick={handleClearAllAttendance} loading={loading}>
             ยืนยันการลบข้อมูล
           </Button>
+        </div>
+      </Dialog>
+
+      {/* Deduction Settings Dialog */}
+      <Dialog
+        isOpen={isDeductionOpen}
+        onClose={() => setIsDeductionOpen(false)}
+        title="แก้ไขค่าการหักคะแนนระเบียบวินัย"
+        description="กำหนดจำนวนคะแนนที่จะหักเมื่อนักเรียนตรวจไม่ผ่านในแต่ละประเภท"
+      >
+        <div className="space-y-5">
+          <div className="space-y-3">
+            <Input
+              label="การแต่งกาย (คะแนนที่หักต่อครั้ง)"
+              type="number"
+              min={0}
+              value={editDeductionSettings.uniformDeduction.toString()}
+              onChange={(e) => setEditDeductionSettings({ ...editDeductionSettings, uniformDeduction: Math.max(0, parseInt(e.target.value) || 0) })}
+            />
+            <Input
+              label="ทรงผม (คะแนนที่หักต่อครั้ง)"
+              type="number"
+              min={0}
+              value={editDeductionSettings.hairDeduction.toString()}
+              onChange={(e) => setEditDeductionSettings({ ...editDeductionSettings, hairDeduction: Math.max(0, parseInt(e.target.value) || 0) })}
+            />
+            <Input
+              label="เล็บมือ (คะแนนที่หักต่อครั้ง)"
+              type="number"
+              min={0}
+              value={editDeductionSettings.nailDeduction.toString()}
+              onChange={(e) => setEditDeductionSettings({ ...editDeductionSettings, nailDeduction: Math.max(0, parseInt(e.target.value) || 0) })}
+            />
+          </div>
+          <p className="text-xs text-gray-500">
+            ค่าเริ่มต้น: แต่งกาย 10 คะแนน, ทรงผม 10 คะแนน, เล็บมือ 5 คะแนน
+          </p>
+        </div>
+        <div className="flex justify-between gap-2 pt-4">
+          <Button variant="outline" size="sm" onClick={handleResetDeductionSettings}>
+            รีเซ็ตเป็นค่าเริ่มต้น
+          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setIsDeductionOpen(false)}>
+              ยกเลิก
+            </Button>
+            <Button size="sm" onClick={handleSaveDeductionSettings} className="font-bold">
+              บันทึกการตั้งค่า
+            </Button>
+          </div>
         </div>
       </Dialog>
 

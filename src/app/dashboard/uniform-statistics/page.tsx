@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { api, Student, UniformCheckRecord } from "@/lib/api";
+import { api, Student, UniformCheckRecord, getDeductionSettings, DeductionSettings } from "@/lib/api";
 import {
   CLASSROOMS,
   ALL_CLASSROOMS_VALUE,
@@ -86,6 +86,9 @@ export default function UniformStatisticsPage() {
 
   const [customStartDate, setCustomStartDate] = useState<string>("");
   const [customEndDate, setCustomEndDate] = useState<string>("");
+
+  // Deduction settings from localStorage
+  const [deductionSettings, setDeductionSettings] = useState<DeductionSettings>(() => getDeductionSettings());
 
   const [selectedClassroom, setSelectedClassroom] = useState<string>(
     session.role === "admin" ? ALL_CLASSROOMS_VALUE : session.classroomLock || "2/1"
@@ -173,7 +176,7 @@ export default function UniformStatisticsPage() {
   const hairPassRate = totalRecords > 0 ? Math.round(((totalRecords - hairFails) / totalRecords) * 100) : 0;
   const nailPassRate = totalRecords > 0 ? Math.round(((totalRecords - nailFails) / totalRecords) * 100) : 0;
 
-  const totalDeductions = (uniformFails * 10) + (hairFails * 10) + (nailFails * 5);
+  const totalDeductions = (uniformFails * deductionSettings.uniformDeduction) + (hairFails * deductionSettings.hairDeduction) + (nailFails * deductionSettings.nailDeduction);
 
   const studentAnalytics = useMemo<UniformStudentStat[]>(() => {
     return students
@@ -186,7 +189,7 @@ export default function UniformStatisticsPage() {
         const hairFail = studentChecks.filter(r => !r.hairPass).length;
         const nailFail = studentChecks.filter(r => !r.nailPass).length;
 
-        const deductions = (uniformFail * 10) + (hairFail * 10) + (nailFail * 5);
+        const deductions = (uniformFail * deductionSettings.uniformDeduction) + (hairFail * deductionSettings.hairDeduction) + (nailFail * deductionSettings.nailDeduction);
 
         return {
           studentId: student.studentId,
@@ -309,12 +312,12 @@ export default function UniformStatisticsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-orange-950 flex items-center gap-2">
-            <ListChecks className="h-6 w-6 text-orange-600" /> สถิติเครื่องแต่งกาย
+            <ListChecks className="h-6 w-6 text-orange-600" /> สถิติระเบียบวินัย
           </h2>
           <p className="text-gray-500 text-xs mt-1">
             {scopeIsAll
               ? "ดูภาพรวมทั้งโรงเรียน และระบุนักเรียนที่มีการหักคะแนนบ่อยที่สุด"
-              : `วิเคราะห์สถิติการตรวจเครื่องแต่งกายเฉพาะ ${classroomLabel(effectiveClassroom)}`}
+              : `สถิติการตรวจระเบียบวินัยเฉพาะ ${classroomLabel(effectiveClassroom)}`}
           </p>
         </div>
       </div>
@@ -393,7 +396,7 @@ export default function UniformStatisticsPage() {
             <div>
               <h3 className="font-bold text-orange-950 text-base">ไม่พบข้อมูลในระบบ</h3>
               <p className="text-gray-500 text-xs mt-1">
-                กรุณาลงบันทึกการตรวจเครื่องแต่งกายก่อนเพื่อประมวลผลกราฟ
+                กรุณาลงบันทึกการตรวจระเบียบวินัยก่อนเพื่อประมวลผลกราฟ
               </p>
             </div>
           </CardContent>

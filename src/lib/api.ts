@@ -410,8 +410,62 @@ export const api = {
       .neq('classroom', 'NONE_CLASSROOM');
     if (error) {
       console.error("Error deleting all uniform checks:", error);
-      return { success: false, message: "เกิดข้อผิดพลาดในการลบข้อมูลการตรวจเครื่องแต่งกายทั้งหมด" };
+      return { success: false, message: "เกิดข้อผิดพลาดในการลบข้อมูลการตรวจระเบียบวินัยทั้งหมด" };
     }
-    return { success: true, message: "ลบข้อมูลการตรวจเครื่องแต่งกายทั้งหมดสำเร็จ" };
+    return { success: true, message: "ลบข้อมูลการตรวจระเบียบวินัยทั้งหมดสำเร็จ" };
   },
+};
+
+export interface DeductionSettings {
+  uniformDeduction: number;
+  hairDeduction: number;
+  nailDeduction: number;
+}
+
+const DEFAULT_DEDUCTION_SETTINGS: DeductionSettings = {
+  uniformDeduction: 10,
+  hairDeduction: 10,
+  nailDeduction: 5,
+};
+
+const DEDUCTION_SETTINGS_KEY = "discipline_deduction_settings";
+
+export const getDeductionSettings = (): DeductionSettings => {
+  if (typeof window === "undefined") return DEFAULT_DEDUCTION_SETTINGS;
+  try {
+    const stored = localStorage.getItem(DEDUCTION_SETTINGS_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return {
+        uniformDeduction: parsed.uniformDeduction ?? DEFAULT_DEDUCTION_SETTINGS.uniformDeduction,
+        hairDeduction: parsed.hairDeduction ?? DEFAULT_DEDUCTION_SETTINGS.hairDeduction,
+        nailDeduction: parsed.nailDeduction ?? DEFAULT_DEDUCTION_SETTINGS.nailDeduction,
+      };
+    }
+  } catch (e) {
+    console.error("Error reading deduction settings:", e);
+  }
+  return DEFAULT_DEDUCTION_SETTINGS;
+};
+
+export const saveDeductionSettings = (settings: DeductionSettings): boolean => {
+  if (typeof window === "undefined") return false;
+  try {
+    localStorage.setItem(DEDUCTION_SETTINGS_KEY, JSON.stringify(settings));
+    return true;
+  } catch (e) {
+    console.error("Error saving deduction settings:", e);
+    return false;
+  }
+};
+
+export const resetDeductionSettings = (): boolean => {
+  if (typeof window === "undefined") return false;
+  try {
+    localStorage.removeItem(DEDUCTION_SETTINGS_KEY);
+    return true;
+  } catch (e) {
+    console.error("Error resetting deduction settings:", e);
+    return false;
+  }
 };

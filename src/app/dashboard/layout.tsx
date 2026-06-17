@@ -57,11 +57,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const navigation: NavigationItem[] = [
     { name: "เช็คชื่อนักเรียน", href: "/dashboard/attendance", icon: ClipboardCheck, adminOnly: false },
-    { name: "ตรวจเครื่องแต่งกาย", href: "/dashboard/uniform-check", icon: UserCheck, adminOnly: false },
+    { name: "ตรวจระเบียบวินัย", href: "/dashboard/uniform-check", icon: UserCheck, adminOnly: false },
     { name: "รายงานรายวัน", href: "/dashboard/daily-report", icon: BarChart3, adminOnly: false },
     { name: "ปฏิทินบันทึก", href: "/dashboard/calendar", icon: CalendarIcon, adminOnly: false },
     { name: "สถิติการเข้าเรียน", href: "/dashboard/statistics", icon: LineChart, adminOnly: false },
-    { name: "สถิติเครื่องแต่งกาย", href: "/dashboard/uniform-statistics", icon: ListChecks, adminOnly: false },
+    { name: "สถิติระเบียบวินัย", href: "/dashboard/uniform-statistics", icon: ListChecks, adminOnly: false },
     { name: "จัดการระบบ", href: "/dashboard/admin", icon: Settings, adminOnly: true },
   ];
 

@@ -292,7 +292,7 @@ export default function StudentPortalPage() {
               <Card className="md:col-span-2 border-0 shadow-lg shadow-slate-200/40 rounded-2xl bg-white overflow-hidden flex flex-col">
                 <div className="p-5 border-b border-slate-100 flex items-center gap-2">
                   <CheckCircle2 className="h-5 w-5 text-orange-500" />
-                  <h3 className="font-bold text-slate-800">สถิติการตรวจเครื่องแต่งกาย</h3>
+                  <h3 className="font-bold text-slate-800">สถิติการตรวจระเบียบวินัย</h3>
                   <span className="ml-auto text-xs font-bold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-lg">ตรวจทั้งหมด {uniformStats.total} ครั้ง</span>
                 </div>
                 <div className="p-6 grid grid-cols-1 sm:grid-cols-3 gap-6 flex-1 items-center">
@@ -303,7 +303,7 @@ export default function StudentPortalPage() {
                     </div>
                     <div>
                       <div className={`text-3xl font-extrabold ${uniformStats.uniformRate >= 80 ? 'text-emerald-600' : 'text-red-600'}`}>{uniformStats.uniformRate}%</div>
-                      <div className="text-sm font-bold text-slate-500 mt-1">เครื่องแต่งกาย</div>
+                      <div className="text-sm font-bold text-slate-500 mt-1">ระเบียบวินัย</div>
                     </div>
                   </div>
                   {/* Hair */}
@@ -400,13 +400,13 @@ export default function StudentPortalPage() {
 
                         {/* Uniform Info */}
                         <div>
-                          <p className="text-xs font-bold text-slate-500 mb-2">การตรวจเครื่องแต่งกาย:</p>
+                          <p className="text-xs font-bold text-slate-500 mb-2">การตรวจระเบียบวินัย:</p>
                           {selectedDayInfo.uniform.length > 0 ? (
                             <div className="space-y-2">
                               {selectedDayInfo.uniform.map((u, i) => (
                                 <div key={i} className="bg-white p-2.5 rounded-lg border border-slate-100 text-xs space-y-1.5 shadow-sm">
                                   <div className="flex justify-between">
-                                    <span className="font-medium text-slate-600 flex items-center gap-1.5"><Shirt className="h-3 w-3" /> เครื่องแต่งกาย</span>
+                                    <span className="font-medium text-slate-600 flex items-center gap-1.5"><Shirt className="h-3 w-3" /> ระเบียบวินัย</span>
                                     <span className={u.uniformPass ? "text-emerald-600 font-bold" : "text-red-600 font-bold"}>{u.uniformPass ? "ผ่าน" : `ไม่ผ่าน (${u.uniformReason || "-"})`}</span>
                                   </div>
                                   <div className="flex justify-between">
