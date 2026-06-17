@@ -27,6 +27,9 @@ import {
   Download,
   Calendar,
   X,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -95,6 +98,49 @@ function formatDate(date: Date): string {
   return date.toISOString().split("T")[0];
 }
 
+// Sort direction type
+type SortDir = "asc" | "desc";
+interface SortConfig {
+  key: string;
+  dir: SortDir;
+}
+
+// Sortable header component
+function SortHeader({
+  label,
+  sortKey,
+  currentSort,
+  onSort,
+  className = "",
+}: {
+  label: string;
+  sortKey: string;
+  currentSort: SortConfig;
+  onSort: (key: string) => void;
+  className?: string;
+}) {
+  const isActive = currentSort.key === sortKey;
+  return (
+    <th
+      className={`px-4 py-3 cursor-pointer select-none hover:bg-orange-100/50 transition-colors ${className}`}
+      onClick={() => onSort(sortKey)}
+    >
+      <div className="flex items-center gap-1 justify-center">
+        <span>{label}</span>
+        {isActive ? (
+          currentSort.dir === "asc" ? (
+            <ArrowUp className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+          ) : (
+            <ArrowDown className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+          )
+        ) : (
+          <ArrowUpDown className="h-3 w-3 text-slate-300 shrink-0" />
+        )}
+      </div>
+    </th>
+  );
+}
+
 export default function StatisticsPage() {
   const { session } = useAuth();
   const { showToast } = useToast();
@@ -110,6 +156,10 @@ export default function StatisticsPage() {
   const [selectedClassroom, setSelectedClassroom] = useState<string>(
     session.role === "admin" ? ALL_CLASSROOMS_VALUE : session.classroomLock || "2/1"
   );
+
+  // Sort state
+  const [studentSort, setStudentSort] = useState<SortConfig>({ key: "attendanceRate", dir: "asc" });
+  const [classroomSort, setClassroomSort] = useState<SortConfig>({ key: "percentage", dir: "asc" });
 
   const isAdmin = session.role === "admin";
   const scopeIsAll = selectedClassroom === ALL_CLASSROOMS_VALUE;
@@ -273,9 +323,57 @@ export default function StatisticsPage() {
           total,
           attendanceRate,
         };
-      })
-      .sort((a, b) => a.attendanceRate - b.attendanceRate || a.number - b.number);
+      });
   }, [filteredAttendance, scopeIsAll, students]);
+
+  // Sorted student analytics
+  const sortedStudentAnalytics = useMemo(() => {
+    const sorted = [...studentAnalytics];
+    const { key, dir } = studentSort;
+    const mult = dir === "asc" ? 1 : -1;
+
+    sorted.sort((a: any, b: any) => {
+      let valA = a[key];
+      let valB = b[key];
+      if (typeof valA === "string") valA = valA.toLowerCase();
+      if (typeof valB === "string") valB = valB.toLowerCase();
+      if (valA < valB) return -1 * mult;
+      if (valA > valB) return 1 * mult;
+      return 0;
+    });
+
+    return sorted;
+  }, [studentAnalytics, studentSort]);
+
+  // Sorted classroom summaries
+  const sortedClassroomSummaries = useMemo(() => {
+    const sorted = [...classroomSummaries];
+    const { key, dir } = classroomSort;
+    const mult = dir === "asc" ? 1 : -1;
+
+    sorted.sort((a: any, b: any) => {
+      // Handle hasData sorting: classrooms without data go to bottom
+      if (key === "hasData" || key === "percentage") {
+        if (key === "hasData") {
+          return (a.hasData === b.hasData) ? 0 : a.hasData ? -1 * mult : 1 * mult;
+        }
+        // percentage: put no-data classrooms at bottom
+        if (!a.hasData && !b.hasData) return 0;
+        if (!a.hasData) return 1;
+        if (!b.hasData) return -1;
+      }
+
+      let valA = a[key];
+      let valB = b[key];
+      if (typeof valA === "string") valA = valA.toLowerCase();
+      if (typeof valB === "string") valB = valB.toLowerCase();
+      if (valA < valB) return -1 * mult;
+      if (valA > valB) return 1 * mult;
+      return 0;
+    });
+
+    return sorted;
+  }, [classroomSummaries, classroomSort]);
 
   const scopeRiskStudents = useMemo(
     () => studentAnalytics.filter((item) => item.total > 0 && item.attendanceRate < 80),
@@ -285,12 +383,12 @@ export default function StatisticsPage() {
   const barData = useMemo(() => {
     if (!scopeIsAll) {
       return {
-        labels: studentAnalytics.map((item) => `#${item.number}`),
+        labels: sortedStudentAnalytics.map((item) => `#${item.number}`),
         datasets: [
           {
             label: "อัตราเข้าเรียน (%)",
-            data: studentAnalytics.map((item) => item.attendanceRate),
-            backgroundColor: studentAnalytics.map((item) =>
+            data: sortedStudentAnalytics.map((item) => item.attendanceRate),
+            backgroundColor: sortedStudentAnalytics.map((item) =>
               item.attendanceRate >= 80
                 ? "rgba(16, 185, 129, 0.85)"
                 : item.attendanceRate >= 60
@@ -306,12 +404,12 @@ export default function StatisticsPage() {
     }
 
     return {
-      labels: classroomSummaries.map((item) => `ห้อง ${item.classroom}`),
+      labels: sortedClassroomSummaries.map((item) => `ห้อง ${item.classroom}`),
       datasets: [
         {
           label: "อัตราเข้าเรียน (%)",
-          data: classroomSummaries.map((item) => (item.hasData ? item.percentage : 0)),
-          backgroundColor: classroomSummaries.map((item) =>
+          data: sortedClassroomSummaries.map((item) => (item.hasData ? item.percentage : 0)),
+          backgroundColor: sortedClassroomSummaries.map((item) =>
             item.hasData ? "rgba(249, 115, 22, 0.85)" : "rgba(229, 231, 235, 0.5)"
           ),
           borderColor: "rgb(249, 115, 22)",
@@ -320,7 +418,7 @@ export default function StatisticsPage() {
         },
       ],
     };
-  }, [classroomSummaries, scopeIsAll, studentAnalytics]);
+  }, [sortedClassroomSummaries, scopeIsAll, sortedStudentAnalytics]);
 
   const doughnutData = useMemo(() => {
     return {
@@ -411,7 +509,7 @@ export default function StatisticsPage() {
             ? {
               title: (context: any) => {
                 const index = context[0].dataIndex;
-                const item = studentAnalytics[index];
+                const item = sortedStudentAnalytics[index];
                 return item ? `${item.number}. ${item.studentName}` : context[0].label;
               },
               label: (context: any) => `อัตราเข้าเรียน: ${context.raw}%`,
@@ -419,14 +517,14 @@ export default function StatisticsPage() {
             : {
               label: (context: any) => {
                 const index = context.dataIndex;
-                const item = classroomSummaries[index];
+                const item = sortedClassroomSummaries[index];
                 return item && item.hasData ? `อัตราเข้าเรียน: ${context.raw}%` : "ยังไม่มีข้อมูลเช็คชื่อ";
               },
             },
         },
       },
     };
-  }, [classroomSummaries, scopeIsAll, studentAnalytics]);
+  }, [sortedClassroomSummaries, scopeIsAll, sortedStudentAnalytics]);
 
   const summaryCards = useMemo(() => {
     if (scopeIsAll) {
@@ -495,6 +593,21 @@ export default function StatisticsPage() {
     uniqueDates,
   ]);
 
+  // Sort toggle handler
+  const handleStudentSort = (key: string) => {
+    setStudentSort((prev) => ({
+      key,
+      dir: prev.key === key && prev.dir === "asc" ? "desc" : "asc",
+    }));
+  };
+
+  const handleClassroomSort = (key: string) => {
+    setClassroomSort((prev) => ({
+      key,
+      dir: prev.key === key && prev.dir === "asc" ? "desc" : "asc",
+    }));
+  };
+
   const exportPdf = () => {
     window.print();
     showToast("เลือกบันทึกเป็น PDF จากหน้าต่างพิมพ์ของเบราว์เซอร์ได้เลย", "info", 3000);
@@ -513,7 +626,7 @@ export default function StatisticsPage() {
       const fileBase = `statistics_${rangeLabel}_${safeFileName(scopeLabel)}`;
 
       if (!scopeIsAll) {
-        const rows = studentAnalytics.map((item) => ({
+        const rows = sortedStudentAnalytics.map((item) => ({
           "เลขที่": item.number,
           "นักเรียน": item.studentName,
           "รหัสนักเรียน": item.studentId,
@@ -532,14 +645,7 @@ export default function StatisticsPage() {
         return;
       }
 
-      const rows = classroomSummaries
-        .slice()
-        .sort((a, b) => {
-          if (!a.hasData && !b.hasData) return 0;
-          if (!a.hasData) return 1;
-          if (!b.hasData) return -1;
-          return a.percentage - b.percentage;
-        })
+      const rows = sortedClassroomSummaries
         .map((item) => ({
           "ห้องเรียน": classroomLabel(item.classroom),
           "สถานะ": item.hasData ? "ส่งแล้ว" : "ยังไม่ส่ง",
@@ -781,7 +887,7 @@ export default function StatisticsPage() {
                   วิเคราะห์รายนักเรียน
                 </CardTitle>
                 <CardDescription className="text-xs font-semibold text-gray-500">
-                  ตารางนี้ช่วยให้อาจารย์เห็นนักเรียนที่มีแนวโน้มขาดเรียนหรือมาสายสะสมจากข้อมูลที่บันทึกแล้ว
+                  คลิกที่หัวตารางเพื่อเรียงลำดับข้อมูลตามคอลัมน์นั้น ๆ
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-0">
@@ -789,18 +895,18 @@ export default function StatisticsPage() {
                   <table className="w-full text-sm">
                     <thead className="bg-orange-50 text-gray-700">
                       <tr>
-                        <th className="px-4 py-3 text-left font-bold">เลขที่</th>
-                        <th className="px-4 py-3 text-left font-bold">นักเรียน</th>
-                        <th className="px-4 py-3 text-center font-bold">มา</th>
-                        <th className="px-4 py-3 text-center font-bold">สาย</th>
-                        <th className="px-4 py-3 text-center font-bold">ลา</th>
-                        <th className="px-4 py-3 text-center font-bold">ขาด</th>
-                        <th className="px-4 py-3 text-center font-bold">รวมวันที่มีข้อมูล</th>
-                        <th className="px-4 py-3 text-right font-bold">% เข้าเรียน</th>
+                        <SortHeader label="เลขที่" sortKey="number" currentSort={studentSort} onSort={handleStudentSort} className="text-left" />
+                        <SortHeader label="นักเรียน" sortKey="studentName" currentSort={studentSort} onSort={handleStudentSort} className="text-left" />
+                        <SortHeader label="มา" sortKey="present" currentSort={studentSort} onSort={handleStudentSort} className="text-center" />
+                        <SortHeader label="สาย" sortKey="late" currentSort={studentSort} onSort={handleStudentSort} className="text-center" />
+                        <SortHeader label="ลา" sortKey="leave" currentSort={studentSort} onSort={handleStudentSort} className="text-center" />
+                        <SortHeader label="ขาด" sortKey="absent" currentSort={studentSort} onSort={handleStudentSort} className="text-center" />
+                        <SortHeader label="รวมวัน" sortKey="total" currentSort={studentSort} onSort={handleStudentSort} className="text-center" />
+                        <SortHeader label="% เข้าเรียน" sortKey="attendanceRate" currentSort={studentSort} onSort={handleStudentSort} className="text-right" />
                       </tr>
                     </thead>
                     <tbody>
-                      {studentAnalytics.map((item) => (
+                      {sortedStudentAnalytics.map((item) => (
                         <tr key={item.studentId} className="border-t border-orange-50 hover:bg-orange-50/40">
                           <td className="px-4 py-3 font-bold text-gray-700">{item.number}</td>
                           <td className="px-4 py-3">
@@ -858,7 +964,7 @@ export default function StatisticsPage() {
                   ห้องที่ควรติดตาม
                 </CardTitle>
                 <CardDescription className="text-xs font-semibold text-gray-500">
-                  เรียงตามอัตราการเข้าเรียนจากต่ำไปสูงเพื่อช่วยให้ผู้บริหารเห็นจุดที่ควรสนับสนุนก่อน
+                  คลิกที่หัวตารางเพื่อเรียงลำดับข้อมูลตามคอลัมน์นั้น ๆ
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-0">
@@ -866,60 +972,52 @@ export default function StatisticsPage() {
                   <table className="w-full text-sm">
                     <thead className="bg-orange-50 text-gray-700">
                       <tr>
-                        <th className="px-4 py-3 text-left font-bold">ห้องเรียน</th>
-                        <th className="px-4 py-3 text-center font-bold">สถานะ</th>
-                        <th className="px-4 py-3 text-center font-bold">นักเรียนทั้งหมด</th>
-                        <th className="px-4 py-3 text-center font-bold text-emerald-700">มา</th>
-                        <th className="px-4 py-3 text-center font-bold text-amber-700">สาย</th>
-                        <th className="px-4 py-3 text-center font-bold text-blue-700">ลา</th>
-                        <th className="px-4 py-3 text-center font-bold text-red-700">ขาด</th>
-                        <th className="px-4 py-3 text-right font-bold">% อัตราการเข้าเรียน</th>
+                        <SortHeader label="ห้องเรียน" sortKey="classroom" currentSort={classroomSort} onSort={handleClassroomSort} className="text-left" />
+                        <SortHeader label="สถานะ" sortKey="hasData" currentSort={classroomSort} onSort={handleClassroomSort} className="text-center" />
+                        <SortHeader label="นักเรียนทั้งหมด" sortKey="totalRecords" currentSort={classroomSort} onSort={handleClassroomSort} className="text-center" />
+                        <SortHeader label="มา" sortKey="present" currentSort={classroomSort} onSort={handleClassroomSort} className="text-center" />
+                        <SortHeader label="สาย" sortKey="late" currentSort={classroomSort} onSort={handleClassroomSort} className="text-center" />
+                        <SortHeader label="ลา" sortKey="leave" currentSort={classroomSort} onSort={handleClassroomSort} className="text-center" />
+                        <SortHeader label="ขาด" sortKey="absent" currentSort={classroomSort} onSort={handleClassroomSort} className="text-center" />
+                        <SortHeader label="% อัตราการเข้าเรียน" sortKey="percentage" currentSort={classroomSort} onSort={handleClassroomSort} className="text-right" />
                       </tr>
                     </thead>
                     <tbody>
-                      {classroomSummaries
-                        .slice()
-                        .sort((a, b) => {
-                          if (!a.hasData && !b.hasData) return 0;
-                          if (!a.hasData) return 1;
-                          if (!b.hasData) return -1;
-                          return a.percentage - b.percentage;
-                        })
-                        .map((item) => (
-                          <tr key={item.classroom} className="border-t border-orange-50 hover:bg-orange-50/40">
-                            <td className="px-4 py-3 font-semibold text-gray-800">{classroomLabel(item.classroom)}</td>
-                            <td className="px-4 py-3 text-center">
-                              {item.hasData ? (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                                  <CheckCircle2 className="h-3 w-3" /> ส่งแล้ว
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-800">
-                                  <AlertTriangle className="h-3 w-3" /> ยังไม่ส่ง
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-center font-semibold text-gray-700">
-                              {item.hasData ? `${item.totalRecords} คน` : "-"}
-                            </td>
-                            <td className="px-4 py-3 text-center text-emerald-700 font-semibold">{item.hasData ? item.present : "-"}</td>
-                            <td className="px-4 py-3 text-center text-amber-700 font-semibold">{item.hasData ? item.late : "-"}</td>
-                            <td className="px-4 py-3 text-center text-blue-700 font-semibold">{item.hasData ? item.leave : "-"}</td>
-                            <td className="px-4 py-3 text-center text-red-700 font-semibold">{item.hasData ? item.absent : "-"}</td>
-                            <td className="px-4 py-3 text-right font-bold">
-                              {item.hasData ? (
-                                <span
-                                  className={`px-2 py-0.5 rounded-lg ${item.percentage >= 80 ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800"
-                                    }`}
-                                >
-                                  {item.percentage}%
-                                </span>
-                              ) : (
-                                <span className="text-gray-400">-</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
+                      {sortedClassroomSummaries.map((item) => (
+                        <tr key={item.classroom} className="border-t border-orange-50 hover:bg-orange-50/40">
+                          <td className="px-4 py-3 font-semibold text-gray-800">{classroomLabel(item.classroom)}</td>
+                          <td className="px-4 py-3 text-center">
+                            {item.hasData ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                                <CheckCircle2 className="h-3 w-3" /> ส่งแล้ว
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-800">
+                                <AlertTriangle className="h-3 w-3" /> ยังไม่ส่ง
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-center font-semibold text-gray-700">
+                            {item.hasData ? `${item.totalRecords} คน` : "-"}
+                          </td>
+                          <td className="px-4 py-3 text-center text-emerald-700 font-semibold">{item.hasData ? item.present : "-"}</td>
+                          <td className="px-4 py-3 text-center text-amber-700 font-semibold">{item.hasData ? item.late : "-"}</td>
+                          <td className="px-4 py-3 text-center text-blue-700 font-semibold">{item.hasData ? item.leave : "-"}</td>
+                          <td className="px-4 py-3 text-center text-red-700 font-semibold">{item.hasData ? item.absent : "-"}</td>
+                          <td className="px-4 py-3 text-right font-bold">
+                            {item.hasData ? (
+                              <span
+                                className={`px-2 py-0.5 rounded-lg ${item.percentage >= 80 ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800"
+                                  }`}
+                              >
+                                {item.percentage}%
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>

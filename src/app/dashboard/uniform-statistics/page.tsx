@@ -24,7 +24,10 @@ import {
   X,
   ListChecks,
   UserCheck,
-  AlertTriangle
+  AlertTriangle,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -89,6 +92,57 @@ export default function UniformStatisticsPage() {
 
   // Deduction settings from database
   const [deductionSettings, setDeductionSettings] = useState<DeductionSettings>({ uniformDeduction: 10, hairDeduction: 10, nailDeduction: 5 });
+
+  // Sort state
+  type SortDir = "asc" | "desc";
+  interface SortConfig {
+    key: string;
+    dir: SortDir;
+  }
+
+  function SortHeader({
+    label,
+    sortKey,
+    currentSort,
+    onSort,
+    className = "",
+  }: {
+    label: string;
+    sortKey: string;
+    currentSort: SortConfig;
+    onSort: (key: string) => void;
+    className?: string;
+  }) {
+    const isActive = currentSort.key === sortKey;
+    return (
+      <th
+        className={`px-4 py-3 cursor-pointer select-none hover:bg-orange-100/50 transition-colors ${className}`}
+        onClick={() => onSort(sortKey)}
+      >
+        <div className="flex items-center gap-1 justify-center">
+          <span>{label}</span>
+          {isActive ? (
+            currentSort.dir === "asc" ? (
+              <ArrowUp className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+            ) : (
+              <ArrowDown className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+            )
+          ) : (
+            <ArrowUpDown className="h-3 w-3 text-slate-300 shrink-0" />
+          )}
+        </div>
+      </th>
+    );
+  }
+
+  const [studentSort, setStudentSort] = useState<SortConfig>({ key: "totalDeductions", dir: "desc" });
+
+  const handleStudentSort = (key: string) => {
+    setStudentSort((prev) => ({
+      key,
+      dir: prev.key === key && prev.dir === "asc" ? "desc" : "asc",
+    }));
+  };
 
   // Load deduction settings from database
   const loadDeductionSettings = useCallback(async () => {
@@ -219,8 +273,26 @@ export default function UniformStatisticsPage() {
           totalDeductions: deductions,
         };
       })
-      .sort((a, b) => b.totalDeductions - a.totalDeductions || a.number - b.number);
   }, [filteredChecks, students, effectiveClassroom]);
+
+  // Sorted student analytics for display
+  const sortedStudentAnalytics = useMemo(() => {
+    const sorted = [...studentAnalytics];
+    const { key, dir } = studentSort;
+    const mult = dir === "asc" ? 1 : -1;
+
+    sorted.sort((a: any, b: any) => {
+      let valA = a[key];
+      let valB = b[key];
+      if (typeof valA === "string") valA = valA.toLowerCase();
+      if (typeof valB === "string") valB = valB.toLowerCase();
+      if (valA < valB) return -1 * mult;
+      if (valA > valB) return 1 * mult;
+      return 0;
+    });
+
+    return sorted;
+  }, [studentAnalytics, studentSort]);
 
   const topDeductionStudents = useMemo(() => {
     return studentAnalytics.filter(s => s.totalDeductions > 0).slice(0, 10);
@@ -536,18 +608,18 @@ export default function UniformStatisticsPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-orange-50 text-gray-700">
                     <tr>
-                      <th className="px-4 py-3 text-left font-bold">ห้อง</th>
-                      <th className="px-4 py-3 text-left font-bold">เลขที่</th>
-                      <th className="px-4 py-3 text-left font-bold">นักเรียน</th>
-                      <th className="px-4 py-3 text-center font-bold">ตรวจ(ครั้ง)</th>
-                      <th className="px-4 py-3 text-center font-bold">การแต่งกาย(ไม่ผ่าน)</th>
-                      <th className="px-4 py-3 text-center font-bold">ทรงผม(ไม่ผ่าน)</th>
-                      <th className="px-4 py-3 text-center font-bold">เล็บมือ(ไม่ผ่าน)</th>
-                      <th className="px-4 py-3 text-right font-bold text-red-600">คะแนนที่ถูกหักรวม</th>
+                      <SortHeader label="ห้อง" sortKey="classroom" currentSort={studentSort} onSort={handleStudentSort} className="text-left" />
+                      <SortHeader label="เลขที่" sortKey="number" currentSort={studentSort} onSort={handleStudentSort} className="text-left" />
+                      <SortHeader label="นักเรียน" sortKey="studentName" currentSort={studentSort} onSort={handleStudentSort} className="text-left" />
+                      <SortHeader label="ตรวจ(ครั้ง)" sortKey="totalChecks" currentSort={studentSort} onSort={handleStudentSort} className="text-center" />
+                      <SortHeader label="แต่งกาย(ไม่ผ่าน)" sortKey="uniformFails" currentSort={studentSort} onSort={handleStudentSort} className="text-center" />
+                      <SortHeader label="ทรงผม(ไม่ผ่าน)" sortKey="hairFails" currentSort={studentSort} onSort={handleStudentSort} className="text-center" />
+                      <SortHeader label="เล็บมือ(ไม่ผ่าน)" sortKey="nailFails" currentSort={studentSort} onSort={handleStudentSort} className="text-center" />
+                      <SortHeader label="คะแนนที่ถูกหักรวม" sortKey="totalDeductions" currentSort={studentSort} onSort={handleStudentSort} className="text-right" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {studentAnalytics.map((student) => (
+                    {sortedStudentAnalytics.map((student) => (
                       <tr key={student.studentId} className="hover:bg-orange-50/10">
                         <td className="px-4 py-3 text-gray-500">{student.classroom}</td>
                         <td className="px-4 py-3 font-semibold text-gray-500">{student.number}</td>
