@@ -13,9 +13,15 @@ import { useToast } from "@/components/ui/toast";
 import {
   Upload, Plus, Trash2, Download, RefreshCw, FileSpreadsheet,
   Settings, AlertTriangle, Scale, Gauge, ChevronDown, ChevronRight,
-  Search, Users, BookOpen, ClipboardList, GraduationCap, X, Pencil, Save
+  Search, Users, BookOpen, ClipboardList, GraduationCap, X, Pencil, Save,
+  History, Clock
 } from "lucide-react";
 import * as XLSX from "xlsx";
+import {
+  parseLegacyAttendanceExcel,
+  saveLegacyAttendanceData,
+  LegacyClassroomData,
+} from "@/lib/importLegacyAttendance";
 
 const CLASSROOMS = [
   "2/1", "2/2", "2/3", "2/4",
@@ -230,11 +236,27 @@ export default function AdminPage() {
   const [isDeleteAllAttendanceOpen, setIsDeleteAllAttendanceOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const legacyFileInputRef = useRef<HTMLInputElement>(null);
 
   // Accordion states (all collapsed by default)
   const [accordionImport, setAccordionImport] = useState(false);
+  const [accordionLegacy, setAccordionLegacy] = useState(false);
   const [accordionDeduction, setAccordionDeduction] = useState(false);
   const [accordionDanger, setAccordionDanger] = useState(false);
+
+  // Legacy import state
+  const [isLegacyPreviewOpen, setIsLegacyPreviewOpen] = useState(false);
+  const [legacyPreviewData, setLegacyPreviewData] = useState<LegacyClassroomData[]>([]);
+  const [legacySkippedSheets, setLegacySkippedSheets] = useState<string[]>([]);
+  const [isImportingLegacy, setIsImportingLegacy] = useState(false);
+  const [legacyImportProgress, setLegacyImportProgress] = useState<string>("");
+  const [legacyImportResult, setLegacyImportResult] = useState<{
+    totalClassrooms: number;
+    completedClassrooms: number;
+    totalAttendanceSaved: number;
+    totalStudentsCreated: number;
+    errors: string[];
+  } | null>(null);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -571,6 +593,79 @@ export default function AdminPage() {
     finally { setLoading(false); setIsDeleteAllAttendanceOpen(false); }
   };
 
+  // Legacy import handlers
+  const handleLegacyFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isImportingLegacy) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setLoading(true);
+    try {
+      const result = await parseLegacyAttendanceExcel(file);
+      setLegacyPreviewData(result.classrooms);
+      setLegacySkippedSheets(result.skippedSheets);
+      setLegacyImportResult(null);
+      setIsLegacyPreviewOpen(true);
+    } catch (err: any) {
+      console.error(err);
+      showToast(err?.message || "ไม่สามารถอ่านไฟล์ Excel ได้", "error");
+    } finally {
+      setLoading(false);
+      if (legacyFileInputRef.current) legacyFileInputRef.current.value = "";
+    }
+  };
+
+  const handleConfirmLegacyImport = async () => {
+    if (isImportingLegacy || legacyPreviewData.length === 0) return;
+    
+    setIsImportingLegacy(true);
+    setLegacyImportProgress("กำลังนำเข้าข้อมูล...");
+    
+    let totalAttendanceSaved = 0;
+    let totalStudentsCreated = 0;
+    let completedClassrooms = 0;
+    const allErrors: string[] = [];
+
+    for (const classroomData of legacyPreviewData) {
+      setLegacyImportProgress(`กำลังนำเข้าข้อมูลห้อง ${classroomData.classroom}...`);
+      try {
+        const res = await saveLegacyAttendanceData(classroomData);
+        if (res.success) {
+          totalAttendanceSaved += res.attendanceSaved;
+          completedClassrooms++;
+        }
+        if (res.errors.length > 0) {
+          allErrors.push(...res.errors.map((e) => `[${classroomData.classroom}] ${e}`));
+        }
+      } catch (err: any) {
+        allErrors.push(`[${classroomData.classroom}] ${err.message || "เกิดข้อผิดพลาด"}`);
+      }
+    }
+
+    setLegacyImportResult({
+      totalClassrooms: legacyPreviewData.length,
+      completedClassrooms,
+      totalAttendanceSaved,
+      totalStudentsCreated,
+      errors: allErrors,
+    });
+    setLegacyImportProgress("");
+
+    if (allErrors.length === 0) {
+      showToast(
+        `นำเข้าข้อมูลเก่าสำเร็จ ${completedClassrooms} ห้อง (บันทึก ${totalAttendanceSaved} รายการ)`,
+        "success"
+      );
+    } else {
+      showToast(
+        `นำเข้าข้อมูล: ${completedClassrooms}/${legacyPreviewData.length} ห้องสำเร็จ | ข้อผิดพลาด ${allErrors.length} รายการ`,
+        "warning", 5000
+      );
+    }
+    
+    setIsImportingLegacy(false);
+  };
+
   const downloadTemplate = () => {
     const wb = XLSX.utils.book_new();
     const headers = [["เลขประจำตัว", "เลขที่", "ชื่อ - สกุล", "ชั้น"]];
@@ -741,7 +836,43 @@ export default function AdminPage() {
               </div>
             </AccordionSection>
 
-            {/* Accordion 2: Deduction Settings */}
+            {/* Accordion 2: Legacy Import */}
+            <AccordionSection
+              title="นำเข้าข้อมูลการเช็กชื่อเก่า"
+              icon={<History className="h-4 w-4" />}
+              isOpen={accordionLegacy}
+              onToggle={() => setAccordionLegacy(!accordionLegacy)}
+            >
+              <div className="space-y-3">
+                <div
+                  onClick={() => legacyFileInputRef.current?.click()}
+                  className="flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl p-5 cursor-pointer transition-all border-slate-200 bg-slate-50/50 hover:border-amber-300 hover:bg-amber-50/30"
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
+                    <Clock className="h-5 w-5 text-amber-600" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-semibold text-slate-700">นำเข้าข้อมูลเก่า</p>
+                    <p className="text-xs text-slate-400">ไฟล์ Excel จาก Google Sheet</p>
+                  </div>
+                  <p className="text-[10px] text-slate-400">ชื่อ Sheet เช่น ม.21, สานฝัน ม.61</p>
+                </div>
+                <input
+                  ref={legacyFileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={handleLegacyFileUpload}
+                  className="hidden"
+                />
+                <p className="text-[10px] text-slate-400 leading-relaxed">
+                  รองรับไฟล์ที่มีโครงสร้าง: คอลัมน์แรกเป็นวันที่, คอลัมน์ถัดไปเป็นชื่อนักเรียน (เลขที่ + คำนำหน้า + ชื่อ)
+                </p>
+              </div>
+            </AccordionSection>
+
+            {/* Accordion 3: Deduction Settings */}
             <AccordionSection
               title="ตั้งค่าการหักคะแนนระเบียบวินัย"
               icon={<Scale className="h-4 w-4" />}
@@ -1205,6 +1336,163 @@ export default function AdminPage() {
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="outline" size="md" onClick={() => setIsDeleteAllAttendanceOpen(false)} className="px-6 py-2.5">ยกเลิก</Button>
             <Button variant="destructive" size="md" onClick={handleClearAllAttendance} loading={loading} className="px-6 py-2.5">ยืนยันการลบข้อมูล</Button>
+          </div>
+        </Dialog>
+
+        {/* Legacy Import Preview Dialog */}
+        <Dialog isOpen={isLegacyPreviewOpen} onClose={() => {
+          if (!isImportingLegacy) {
+            setIsLegacyPreviewOpen(false);
+            setLegacyImportResult(null);
+          }
+        }} title="พรีวิวข้อมูลการเช็กชื่อเก่า" description="ตรวจสอบข้อมูลก่อนนำเข้า">
+          <div className="max-h-[70vh] overflow-y-auto space-y-4">
+            {legacyImportProgress && (
+              <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-100 rounded-xl">
+                <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-amber-500" />
+                <span className="text-sm font-semibold text-amber-800">{legacyImportProgress}</span>
+              </div>
+            )}
+
+            {legacyImportResult ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3">
+                    <div className="text-[11px] font-bold text-gray-500">นำเข้าสำเร็จ</div>
+                    <div className="text-base font-extrabold text-emerald-800">{legacyImportResult.completedClassrooms}/{legacyImportResult.totalClassrooms} ห้อง</div>
+                  </div>
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3">
+                    <div className="text-[11px] font-bold text-gray-500">บันทึกรายการ</div>
+                    <div className="text-base font-extrabold text-emerald-800">{legacyImportResult.totalAttendanceSaved} รายการ</div>
+                  </div>
+                </div>
+                {legacyImportResult.totalStudentsCreated > 0 && (
+                  <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-3">
+                    <div className="text-sm font-bold text-blue-900">สร้างนักเรียนใหม่</div>
+                    <div className="text-xs text-blue-900/80 font-semibold">เพิ่มนักเรียนใหม่ {legacyImportResult.totalStudentsCreated} คน</div>
+                  </div>
+                )}
+                {legacyImportResult.errors.length > 0 && (
+                  <div className="rounded-xl border border-red-100 bg-red-50/40 p-3">
+                    <div className="text-sm font-bold text-red-900">ข้อผิดพลาด</div>
+                    <div className="text-xs text-red-900/80 font-semibold max-h-32 overflow-y-auto">
+                      {legacyImportResult.errors.map((err, i) => (
+                        <div key={i}>- {err}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="flex justify-end gap-3 pt-2">
+                  <Button variant="outline" size="md" onClick={() => { setIsLegacyPreviewOpen(false); setLegacyImportResult(null); }} className="px-6 py-2.5">ปิด</Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="rounded-xl border border-amber-100 bg-amber-50/40 p-3">
+                    <div className="text-[11px] font-bold text-gray-500">จำนวนห้อง</div>
+                    <div className="text-base font-extrabold text-amber-950">{legacyPreviewData.length}</div>
+                  </div>
+                  <div className="rounded-xl border border-amber-100 bg-amber-50/40 p-3">
+                    <div className="text-[11px] font-bold text-gray-500">วันทั้งหมด</div>
+                    <div className="text-base font-extrabold text-amber-950">{legacyPreviewData.reduce((acc, c) => acc + c.attendanceDays.length, 0)}</div>
+                  </div>
+                  <div className="rounded-xl border border-amber-100 bg-amber-50/40 p-3">
+                    <div className="text-[11px] font-bold text-gray-500">รายการเช็กชื่อ</div>
+                    <div className="text-base font-extrabold text-amber-950">{legacyPreviewData.reduce((acc, c) => acc + c.attendanceDays.reduce((a, d) => a + d.records.length, 0), 0)}</div>
+                  </div>
+                </div>
+                {legacySkippedSheets.length > 0 && (
+                  <div className="rounded-xl border border-amber-100 bg-amber-50/40 p-3">
+                    <div className="text-sm font-bold text-amber-900">ข้าม sheet</div>
+                    <div className="text-xs text-amber-900/80 font-semibold">{legacySkippedSheets.join(", ")}</div>
+                  </div>
+                )}
+                {legacyPreviewData.map((classroomData) => (
+                  <div key={classroomData.classroom} className="space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <div className="text-sm font-extrabold text-amber-950">ห้องเรียน {classroomData.classroom}</div>
+                        {classroomData.isSapfan && (
+                          <span className="text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">สานฝัน</span>
+                        )}
+                      </div>
+                      <div className="text-[11px] font-bold text-gray-500">{classroomData.attendanceDays.length} วัน | {classroomData.studentNumbers.length} คน</div>
+                    </div>
+
+                    {/* Student List Preview - first 5 students */}
+                    {classroomData.studentHeaders.length > 0 && (
+                      <div className="border border-amber-100 rounded-xl overflow-hidden">
+                        <div className="text-[10px] font-bold text-amber-700 bg-amber-50 px-3 py-1.5 border-b border-amber-100">
+                          รายชื่อนักเรียน (แสดง {Math.min(5, classroomData.studentHeaders.length)} ใน {classroomData.studentHeaders.length} คน)
+                        </div>
+                        <div className="divide-y divide-amber-50">
+                          {classroomData.studentHeaders.slice(0, 5).map((header, idx) => (
+                            <div key={idx} className="flex items-center gap-2 px-3 py-1.5 text-xs">
+                              <span className="font-bold text-gray-400 w-5 text-right">{idx + 1}.</span>
+                              <span className="font-semibold text-gray-700 truncate">{header}</span>
+                            </div>
+                          ))}
+                          {classroomData.studentHeaders.length > 5 && (
+                            <div className="px-3 py-1.5 text-[10px] text-gray-400 italic">
+                              ...และอีก {classroomData.studentHeaders.length - 5} คน
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Attendance Days Table */}
+                    <div className="border border-amber-100 rounded-xl overflow-hidden">
+                      <Table>
+                        <TableHeader className="bg-amber-50">
+                          <TableRow>
+                            <TableHead className="w-24">วันที่</TableHead>
+                            <TableHead className="w-16 text-center">คนที่เช็ก</TableHead>
+                            <TableHead>สถานะ</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {classroomData.attendanceDays.slice(0, 10).map((day) => {
+                            const statusCount: Record<string, number> = {};
+                            day.records.forEach((r) => {
+                              const key = r.status || "ไม่ระบุ";
+                              statusCount[key] = (statusCount[key] || 0) + 1;
+                            });
+                            const statusStr = Object.entries(statusCount)
+                              .map(([k, v]) => `${k} ${v}`)
+                              .join(", ");
+                            return (
+                              <TableRow key={day.date}>
+                                <TableCell className="font-mono text-xs font-semibold text-gray-600">{day.date}</TableCell>
+                                <TableCell className="text-center font-bold text-gray-600">{day.records.length}</TableCell>
+                                <TableCell className="text-xs text-gray-500">{statusStr}</TableCell>
+                              </TableRow>
+                            );
+                          })}
+                          {classroomData.attendanceDays.length > 10 && (
+                            <TableRow>
+                              <TableCell colSpan={3} className="text-center text-xs text-gray-400 font-semibold py-2">
+                                ...และอีก {classroomData.attendanceDays.length - 10} วัน
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                ))}
+                <div className="rounded-xl border border-amber-100 bg-amber-50/30 p-3">
+                  <p className="text-xs text-amber-900 font-semibold">
+                    ⚠️ ระบบจะใช้ <strong>เลขที่</strong> ของนักเรียนในการ match กับฐานข้อมูล กรุณาตรวจสอบว่านักเรียนในห้องนั้นๆ มีข้อมูลอยู่ในระบบแล้ว
+                  </p>
+                </div>
+                <div className="flex justify-end gap-3 pt-2">
+                  <Button variant="outline" size="md" onClick={() => { setIsLegacyPreviewOpen(false); setLegacyImportResult(null); }} disabled={isImportingLegacy} className="px-6 py-2.5">ยกเลิก</Button>
+                  <Button variant="primary" size="md" onClick={handleConfirmLegacyImport} loading={isImportingLegacy} className="px-6 py-2.5 font-bold bg-amber-500 hover:bg-amber-600">ยืนยันนำเข้าข้อมูลเก่า</Button>
+                </div>
+              </>
+            )}
           </div>
         </Dialog>
 

@@ -61,6 +61,8 @@ interface ClassroomSummary {
   classroom: string;
   percentage: number;
   totalRecords: number;
+  uniqueStudents: number;
+  uniqueDates: number;
   hasData: boolean;
   present: number;
   late: number;
@@ -180,15 +182,29 @@ export default function StatisticsPage() {
     setLoading(true);
     try {
       const classroomScope = isAdmin ? selectedClassroom : effectiveClassroom;
+      const scopeIsAll = classroomScope === ALL_CLASSROOMS_VALUE;
 
-      const attendanceRes = await api.getAttendance(
-        classroomScope === ALL_CLASSROOMS_VALUE ? undefined : classroomScope
-      );
-      if (!attendanceRes.success) {
-        throw new Error("ไม่สามารถดึงสถิติการเข้าเรียนได้");
+      let allAttendance: AttendanceRecord[] = [];
+
+      if (scopeIsAll) {
+        // Query all classrooms in PARALLEL to avoid Supabase 1000 record limit
+        const results = await Promise.all(
+          CLASSROOMS.map((cls) => api.getAttendance(cls))
+        );
+        for (const res of results) {
+          if (res.success) {
+            allAttendance.push(...(res.attendance || []));
+          }
+        }
+      } else {
+        const attendanceRes = await api.getAttendance(classroomScope);
+        if (!attendanceRes.success) {
+          throw new Error("ไม่สามารถดึงสถิติการเข้าเรียนได้");
+        }
+        allAttendance = attendanceRes.attendance || [];
       }
 
-      setAttendance(attendanceRes.attendance || []);
+      setAttendance(allAttendance);
 
       if (classroomScope !== ALL_CLASSROOMS_VALUE) {
         const studentsRes = await api.getStudents(classroomScope);
@@ -270,6 +286,8 @@ export default function StatisticsPage() {
           late: 0,
           leave: 0,
           absent: 0,
+          uniqueStudents: 0,
+          uniqueDates: 0,
         };
       }
 
@@ -279,10 +297,15 @@ export default function StatisticsPage() {
       const absent = records.filter((record) => record.status === "ขาด").length;
       const percentage = Math.round(((present + late) / totalRecords) * 100);
 
+      const uniqueStudents = new Set(records.map((r) => r.studentId)).size;
+      const uniqueDates = new Set(records.map((r) => r.date)).size;
+
       return {
         classroom,
         percentage,
         totalRecords,
+        uniqueStudents,
+        uniqueDates,
         hasData: true,
         present,
         late,
@@ -974,7 +997,8 @@ export default function StatisticsPage() {
                       <tr>
                         <SortHeader label="ห้องเรียน" sortKey="classroom" currentSort={classroomSort} onSort={handleClassroomSort} className="text-left" />
                         <SortHeader label="สถานะ" sortKey="hasData" currentSort={classroomSort} onSort={handleClassroomSort} className="text-center" />
-                        <SortHeader label="นักเรียนทั้งหมด" sortKey="totalRecords" currentSort={classroomSort} onSort={handleClassroomSort} className="text-center" />
+                        <SortHeader label="จำนวนนักเรียน" sortKey="uniqueStudents" currentSort={classroomSort} onSort={handleClassroomSort} className="text-center" />
+                        <SortHeader label="จำนวนวัน" sortKey="uniqueDates" currentSort={classroomSort} onSort={handleClassroomSort} className="text-center" />
                         <SortHeader label="มา" sortKey="present" currentSort={classroomSort} onSort={handleClassroomSort} className="text-center" />
                         <SortHeader label="สาย" sortKey="late" currentSort={classroomSort} onSort={handleClassroomSort} className="text-center" />
                         <SortHeader label="ลา" sortKey="leave" currentSort={classroomSort} onSort={handleClassroomSort} className="text-center" />
@@ -998,7 +1022,10 @@ export default function StatisticsPage() {
                             )}
                           </td>
                           <td className="px-4 py-3 text-center font-semibold text-gray-700">
-                            {item.hasData ? `${item.totalRecords} คน` : "-"}
+                            {item.hasData ? `${item.uniqueStudents} คน` : "-"}
+                          </td>
+                          <td className="px-4 py-3 text-center font-semibold text-gray-700">
+                            {item.hasData ? `${item.uniqueDates} วัน` : "-"}
                           </td>
                           <td className="px-4 py-3 text-center text-emerald-700 font-semibold">{item.hasData ? item.present : "-"}</td>
                           <td className="px-4 py-3 text-center text-amber-700 font-semibold">{item.hasData ? item.late : "-"}</td>

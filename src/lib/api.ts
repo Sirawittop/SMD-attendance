@@ -234,7 +234,7 @@ export const api = {
     classroom?: string,
     date?: string
   ): Promise<{ success: boolean; attendance: AttendanceRecord[] }> => {
-    let query = supabase.from('attendance').select('*');
+    let query = supabase.from('attendance').select('*', { count: 'exact' }).limit(50000);
     if (classroom) {
       query = query.eq('classroom', classroom);
     }
