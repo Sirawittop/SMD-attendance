@@ -145,7 +145,7 @@ export default function UniformCheckPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-orange-950 flex items-center gap-2">
-            <UserCheck className="h-6 w-6 text-orange-600" /> ตรวจระเบียบวินัยน
+            <UserCheck className="h-6 w-6 text-orange-600" /> ตรวจระเบียบวินัย
           </h2>
           <p className="text-gray-500 text-sm mt-1">
             ตรวจการแต่งกาย ทรงผม และเล็บมือ
