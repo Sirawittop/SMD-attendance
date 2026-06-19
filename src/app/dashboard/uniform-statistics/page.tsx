@@ -28,6 +28,8 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Printer,
+  Download,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -395,6 +397,71 @@ export default function UniformStatisticsPage() {
     };
   }, []);
 
+  const exportPdf = () => {
+    window.print();
+    showToast("เลือกบันทึกเป็น PDF จากหน้าต่างพิมพ์ของเบราว์เซอร์ได้เลย", "info", 3000);
+  };
+
+  const safeFileName = (s: string) =>
+    s
+      .trim()
+      .replace(/\s+/g, "_")
+      .replace(/[\\/:*?\"<>|]+/g, "-");
+
+  const exportExcel = () => {
+    try {
+      const scopeLabel = scopeIsAll ? "all" : effectiveClassroom;
+      const rangeLabel = rangeFilter === "all" ? "all" : rangeFilter;
+      const fileBase = `uniform_statistics_${rangeLabel}_${safeFileName(scopeLabel)}`;
+
+      if (!scopeIsAll) {
+        const rows = sortedStudentAnalytics.map((item) => ({
+          "ห้อง": classroomLabel(item.classroom),
+          "เลขที่": item.number,
+          "นักเรียน": item.studentName,
+          "รหัสนักเรียน": item.studentId,
+          "ตรวจ(ครั้ง)": item.totalChecks,
+          "แต่งกาย(ไม่ผ่าน)": item.uniformFails,
+          "ทรงผม(ไม่ผ่าน)": item.hairFails,
+          "เล็บมือ(ไม่ผ่าน)": item.nailFails,
+          "คะแนนที่ถูกหักรวม": item.totalDeductions,
+        }));
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Student Stats");
+        XLSX.writeFile(wb, safeFileName(`${fileBase}.xlsx`));
+        showToast("Export Excel สำเร็จ (สถิติระเบียบวินัยรายนักเรียน)", "success", 2500);
+        return;
+      }
+
+      const classroomStats = CLASSROOMS.map((cls) => {
+        const clsChecks = filteredChecks.filter(r => r.classroom === cls);
+        const clsStudents = students.filter(s => s.classroom === cls);
+        const uniformFails = clsChecks.filter(r => !r.uniformPass).length;
+        const hairFails = clsChecks.filter(r => !r.hairPass).length;
+        const nailFails = clsChecks.filter(r => !r.nailPass).length;
+        const totalDeductions = (uniformFails * deductionSettings.uniformDeduction) + (hairFails * deductionSettings.hairDeduction) + (nailFails * deductionSettings.nailDeduction);
+        return {
+          "ห้องเรียน": classroomLabel(cls),
+          "จำนวนนักเรียน": clsStudents.length,
+          "ตรวจ(ครั้ง)": clsChecks.length,
+          "แต่งกาย(ไม่ผ่าน)": uniformFails,
+          "ทรงผม(ไม่ผ่าน)": hairFails,
+          "เล็บมือ(ไม่ผ่าน)": nailFails,
+          "คะแนนที่ถูกหักรวม": totalDeductions,
+        };
+      });
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(classroomStats), "Classroom Stats");
+      XLSX.writeFile(wb, safeFileName(`${fileBase}.xlsx`));
+      showToast("Export Excel สำเร็จ (สถิติระเบียบวินัยรายห้อง)", "success", 2500);
+    } catch (e: any) {
+      console.error(e);
+      showToast(e?.message || "Export Excel ไม่สำเร็จ", "error");
+    }
+  };
+
   return (
     <div className="space-y-6 font-sans">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -460,6 +527,22 @@ export default function UniformStatisticsPage() {
           )}
 
           <div className="flex gap-2 w-full lg:w-auto">
+            <Button
+              variant="outline"
+              onClick={exportPdf}
+              disabled={loading}
+              className="px-4 w-full lg:w-auto border-orange-200"
+            >
+              <Printer className="h-4 w-4" /> Export PDF
+            </Button>
+            <Button
+              variant="outline"
+              onClick={exportExcel}
+              disabled={loading}
+              className="px-4 w-full lg:w-auto border-orange-200"
+            >
+              <Download className="h-4 w-4" /> Export Excel
+            </Button>
             <Button
               variant="outline"
               onClick={loadStats}
