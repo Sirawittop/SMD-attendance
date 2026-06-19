@@ -695,7 +695,7 @@ export default function StatisticsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-orange-950 flex items-center gap-2">
-            <BarChart2 className="h-6 w-6 text-orange-600" /> สถิติและบทวิเคราะห์การเข้าแถว
+            <BarChart2 className="h-6 w-6 text-orange-600" /> ภาพรวมสถิติการเข้าแถว
           </h2>
           <p className="text-gray-500 text-xs mt-1">
             {scopeIsAll
@@ -709,7 +709,7 @@ export default function StatisticsPage() {
         <CardContent className="p-5 flex flex-col lg:flex-row items-end gap-4">
           <div className="w-full lg:w-72">
             <Select
-              label="ขอบเขตการวิเคราะห์"
+              label="ห้องเรียน"
               value={selectedClassroom}
               onChange={(e) => setSelectedClassroom(e.target.value)}
               disabled={!isAdmin}
@@ -719,7 +719,7 @@ export default function StatisticsPage() {
 
           <div className="w-full lg:w-56">
             <Select
-              label="ช่วงเวลาวิเคราะห์"
+              label="ช่วงเวลา"
               value={rangeFilter}
               onChange={(e) => setRangeFilter(e.target.value as RangeFilter)}
               options={RANGE_PRESETS.map((p) => ({ value: p.value, label: p.label }))}

@@ -414,7 +414,7 @@ export default function UniformStatisticsPage() {
         <CardContent className="p-5 flex flex-col lg:flex-row items-end gap-4">
           <div className="w-full lg:w-72">
             <Select
-              label="ขอบเขตการวิเคราะห์"
+              label="ห้องเรียน"
               value={selectedClassroom}
               onChange={(e) => setSelectedClassroom(e.target.value)}
               disabled={!isAdmin}
@@ -424,7 +424,7 @@ export default function UniformStatisticsPage() {
 
           <div className="w-full lg:w-56">
             <Select
-              label="ช่วงเวลาวิเคราะห์"
+              label="ช่วงเวลา"
               value={rangeFilter}
               onChange={(e) => setRangeFilter(e.target.value as RangeFilter)}
               options={RANGE_PRESETS.map((p) => ({ value: p.value, label: p.label }))}
