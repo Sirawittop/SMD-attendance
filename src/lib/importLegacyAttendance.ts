@@ -265,10 +265,12 @@ export const saveLegacyAttendanceData = async (
           // Student with this number doesn't exist in DB - skip
           continue;
         }
+        // Skip records with empty status - don't count unchecked students as "มา"
+        if (!record.status) continue;
         attendanceRecords.push({
           studentId: student.studentId,
           studentName: student.name,
-          status: record.status || "มา",
+          status: record.status,
         });
       }
 
