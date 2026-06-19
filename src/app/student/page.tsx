@@ -254,6 +254,14 @@ export default function StudentPortalPage() {
                       "ค้นหา"
                     )}
                   </Button>
+                  <button
+                    onClick={() => {
+                      window.location.href = "/login";
+                    }}
+                    className="flex items-center justify-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-4 py-2.5 rounded-xl transition-all w-full sm:w-auto shrink-0"
+                  >
+                    เข้าสู่ระบบอาจารย์
+                  </button>
                 </div>
               </form>
             </div>
@@ -327,60 +335,60 @@ export default function StudentPortalPage() {
               </div>
 
 
-{/* Chart */}
-                <div className="bg-white border border-slate-100 rounded-2xl p-6 sm:p-8 shadow-sm">
-                  <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
-                    <CheckCircle2 className="h-4 w-4 text-orange-500" />
-                    <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">สัดส่วนการมาเรียน</h3>
+              {/* Chart */}
+              <div className="bg-white border border-slate-100 rounded-2xl p-6 sm:p-8 shadow-sm">
+                <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
+                  <CheckCircle2 className="h-4 w-4 text-orange-500" />
+                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">สัดส่วนการมาเรียน</h3>
+                </div>
+                <div className="flex flex-col items-center gap-6">
+                  <div className="relative h-44 w-44">
+                    {stats.total > 0 ? (
+                      <Doughnut
+                        data={chartData}
+                        options={{
+                          maintainAspectRatio: false,
+                          cutout: '78%',
+                          plugins: { legend: { display: false }, tooltip: { enabled: true } }
+                        }}
+                      />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center">
+                        <p className="text-sm text-slate-400 font-medium">ไม่มีข้อมูล</p>
+                      </div>
+                    )}
+                    {stats.total > 0 && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <span className="text-2xl font-bold text-slate-900">{stats.rate}%</span>
+                        <span className="text-[11px] font-medium text-slate-500">มาเรียน</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex flex-col items-center gap-6">
-                    <div className="relative h-44 w-44">
-                      {stats.total > 0 ? (
-                        <Doughnut
-                          data={chartData}
-                          options={{
-                            maintainAspectRatio: false,
-                            cutout: '78%',
-                            plugins: { legend: { display: false }, tooltip: { enabled: true } }
-                          }}
-                        />
-                      ) : (
-                        <div className="h-full w-full flex items-center justify-center">
-                          <p className="text-sm text-slate-400 font-medium">ไม่มีข้อมูล</p>
-                        </div>
-                      )}
-                      {stats.total > 0 && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                          <span className="text-2xl font-bold text-slate-900">{stats.rate}%</span>
-                          <span className="text-[11px] font-medium text-slate-500">มาเรียน</span>
-                        </div>
-                      )}
+                  <div className="w-full grid grid-cols-2 gap-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#10b981] shrink-0" />
+                      <span className="text-slate-600">มาเรียน</span>
+                      <span className="ml-auto font-semibold text-slate-900">{stats.present}</span>
                     </div>
-                    <div className="w-full grid grid-cols-2 gap-2">
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="w-2.5 h-2.5 rounded-full bg-[#10b981] shrink-0" />
-                        <span className="text-slate-600">มาเรียน</span>
-                        <span className="ml-auto font-semibold text-slate-900">{stats.present}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b] shrink-0" />
-                        <span className="text-slate-600">มาสาย</span>
-                        <span className="ml-auto font-semibold text-slate-900">{stats.late}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="w-2.5 h-2.5 rounded-full bg-[#3b82f6] shrink-0" />
-                        <span className="text-slate-600">ลา</span>
-                        <span className="ml-auto font-semibold text-slate-900">{stats.leave}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444] shrink-0" />
-                        <span className="text-slate-600">ขาด</span>
-                        <span className="ml-auto font-semibold text-slate-900">{stats.absent}</span>
-                      </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b] shrink-0" />
+                      <span className="text-slate-600">มาสาย</span>
+                      <span className="ml-auto font-semibold text-slate-900">{stats.late}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#3b82f6] shrink-0" />
+                      <span className="text-slate-600">ลา</span>
+                      <span className="ml-auto font-semibold text-slate-900">{stats.leave}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444] shrink-0" />
+                      <span className="text-slate-600">ขาด</span>
+                      <span className="ml-auto font-semibold text-slate-900">{stats.absent}</span>
                     </div>
                   </div>
                 </div>
-          
+              </div>
+
 
 
               {/* ── Calendar & Chart ── */}
@@ -464,65 +472,65 @@ export default function StudentPortalPage() {
                 </div>
 
 
-                  {/* ── Uniform Stats ── */}
-              <div className="bg-white border border-slate-100 rounded-2xl p-6 sm:p-8 shadow-sm">
-                <div className="flex items-center justify-between mb-5">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-orange-500" />
-                    <h3 className="text-sm font-semibold text-slate-900">สถิติการตรวจระเบียบวินัย</h3>
+                {/* ── Uniform Stats ── */}
+                <div className="bg-white border border-slate-100 rounded-2xl p-6 sm:p-8 shadow-sm">
+                  <div className="flex items-center justify-between mb-5">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-orange-500" />
+                      <h3 className="text-sm font-semibold text-slate-900">สถิติการตรวจระเบียบวินัย</h3>
+                    </div>
+                    <span className="text-xs font-medium text-slate-400 bg-white border border-slate-200 px-2.5 py-1 rounded-lg">
+                      ตรวจทั้งหมด {uniformStats.total} ครั้ง
+                    </span>
                   </div>
-                  <span className="text-xs font-medium text-slate-400 bg-white border border-slate-200 px-2.5 py-1 rounded-lg">
-                    ตรวจทั้งหมด {uniformStats.total} ครั้ง
-                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                    {/* Uniform */}
+                    <div className="flex flex-col gap-2.5">
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
+                          <Shirt className="h-4 w-4 text-slate-600" />
+                        </div>
+                        <div>
+                          <div className={`text-lg font-semibold ${getRateColor(uniformStats.uniformRate)}`}>{uniformStats.uniformRate}%</div>
+                          <div className="text-xs font-medium text-slate-500">ระเบียบวินัย</div>
+                        </div>
+                      </div>
+                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${getProgressColor(uniformStats.uniformRate)} transition-all`} style={{ width: `${Math.min(uniformStats.uniformRate, 100)}%` }} />
+                      </div>
+                    </div>
+                    {/* Hair */}
+                    <div className="flex flex-col gap-2.5">
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
+                          <Scissors className="h-4 w-4 text-slate-600" />
+                        </div>
+                        <div>
+                          <div className={`text-lg font-semibold ${getRateColor(uniformStats.hairRate)}`}>{uniformStats.hairRate}%</div>
+                          <div className="text-xs font-medium text-slate-500">ทรงผม</div>
+                        </div>
+                      </div>
+                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${getProgressColor(uniformStats.hairRate)} transition-all`} style={{ width: `${Math.min(uniformStats.hairRate, 100)}%` }} />
+                      </div>
+                    </div>
+                    {/* Nails */}
+                    <div className="flex flex-col gap-2.5">
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
+                          <Hand className="h-4 w-4 text-slate-600" />
+                        </div>
+                        <div>
+                          <div className={`text-lg font-semibold ${getRateColor(uniformStats.nailRate)}`}>{uniformStats.nailRate}%</div>
+                          <div className="text-xs font-medium text-slate-500">เล็บ</div>
+                        </div>
+                      </div>
+                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${getProgressColor(uniformStats.nailRate)} transition-all`} style={{ width: `${Math.min(uniformStats.nailRate, 100)}%` }} />
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                  {/* Uniform */}
-                  <div className="flex flex-col gap-2.5">
-                    <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
-                        <Shirt className="h-4 w-4 text-slate-600" />
-                      </div>
-                      <div>
-                        <div className={`text-lg font-semibold ${getRateColor(uniformStats.uniformRate)}`}>{uniformStats.uniformRate}%</div>
-                        <div className="text-xs font-medium text-slate-500">ระเบียบวินัย</div>
-                      </div>
-                    </div>
-                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full ${getProgressColor(uniformStats.uniformRate)} transition-all`} style={{ width: `${Math.min(uniformStats.uniformRate, 100)}%` }} />
-                    </div>
-                  </div>
-                  {/* Hair */}
-                  <div className="flex flex-col gap-2.5">
-                    <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
-                        <Scissors className="h-4 w-4 text-slate-600" />
-                      </div>
-                      <div>
-                        <div className={`text-lg font-semibold ${getRateColor(uniformStats.hairRate)}`}>{uniformStats.hairRate}%</div>
-                        <div className="text-xs font-medium text-slate-500">ทรงผม</div>
-                      </div>
-                    </div>
-                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full ${getProgressColor(uniformStats.hairRate)} transition-all`} style={{ width: `${Math.min(uniformStats.hairRate, 100)}%` }} />
-                    </div>
-                  </div>
-                  {/* Nails */}
-                  <div className="flex flex-col gap-2.5">
-                    <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
-                        <Hand className="h-4 w-4 text-slate-600" />
-                      </div>
-                      <div>
-                        <div className={`text-lg font-semibold ${getRateColor(uniformStats.nailRate)}`}>{uniformStats.nailRate}%</div>
-                        <div className="text-xs font-medium text-slate-500">เล็บ</div>
-                      </div>
-                    </div>
-                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full ${getProgressColor(uniformStats.nailRate)} transition-all`} style={{ width: `${Math.min(uniformStats.nailRate, 100)}%` }} />
-                    </div>
-                  </div>
-                </div>
-              </div>
 
               </div>
             </div>
