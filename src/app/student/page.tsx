@@ -442,7 +442,7 @@ export default function StudentPortalPage() {
                                 {selectedDayInfo.uniform.map((u, i) => (
                                   <div key={i} className="bg-white p-2.5 rounded-xl border border-slate-100 text-xs space-y-1.5">
                                     <div className="flex justify-between">
-                                      <span className="font-medium text-slate-600 flex items-center gap-1.5"><Shirt className="h-3 w-3" /> ระเบียบวินัย</span>
+                                      <span className="font-medium text-slate-600 flex items-center gap-1.5"><Shirt className="h-3 w-3" /> การแต่งกาย</span>
                                       <span className={u.uniformPass ? "text-emerald-600 font-semibold" : "text-red-600 font-semibold"}>{u.uniformPass ? "ผ่าน" : `ไม่ผ่าน (${u.uniformReason || "-"})`}</span>
                                     </div>
                                     <div className="flex justify-between">
