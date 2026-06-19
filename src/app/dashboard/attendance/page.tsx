@@ -330,7 +330,7 @@ export default function AttendancePage() {
             <div className="h-11 rounded-2xl bg-orange-50 border border-orange-100" />
             <div className="h-11 rounded-2xl bg-orange-50 border border-orange-100" />
           </div>
-          <span className="block text-gray-500 text-sm font-semibold">กำลังดึงข้อมูลการเข้าเรียน...</span>
+          <span className="block text-gray-500 text-sm font-semibold">กำลังดึงข้อมูลการเข้าแถว...</span>
         </div>
       ) : students.length === 0 ? (
         <Card className="border-orange-200 bg-orange-50/20">
@@ -430,7 +430,7 @@ export default function AttendancePage() {
                     <TableHead className="w-16 text-center text-sm">เลขที่</TableHead>
                     <TableHead className="w-28 text-sm">รหัสนักเรียน</TableHead>
                     <TableHead className="text-sm">ชื่อ-นามสกุล</TableHead>
-                    <TableHead className="text-center w-72 text-sm">สถานะการเข้าเรียน</TableHead>
+                    <TableHead className="text-center w-72 text-sm">สถานะการเข้าแถว</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -547,7 +547,7 @@ export default function AttendancePage() {
               className="h-11 px-8 text-base font-bold rounded-full shadow-md shadow-orange-100"
               loading={loading}
             >
-              <Save className="h-4.5 w-4.5" /> บันทึกการเข้าเรียน
+              <Save className="h-4.5 w-4.5" /> บันทึกการเข้าแถว
             </Button>
           </div>
 

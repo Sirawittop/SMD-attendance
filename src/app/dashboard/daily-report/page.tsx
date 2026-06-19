@@ -247,7 +247,7 @@ export default function DailyReportPage() {
           "สาย (คน)": s.hasRecord ? s.late : "-",
           "ลา (คน)": s.hasRecord ? s.leave : "-",
           "ขาด (คน)": s.hasRecord ? s.absent : "-",
-          "% อัตราการเข้าเรียน": s.hasRecord ? `${s.percentage}%` : "-",
+          "% อัตราการเข้าแถว": s.hasRecord ? `${s.percentage}%` : "-",
         }));
 
         const wb = XLSX.utils.book_new();
@@ -397,7 +397,7 @@ export default function DailyReportPage() {
                     <CheckCheck className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-gray-500">มาเรียน</p>
+                    <p className="text-xs font-bold text-gray-500">มาเข้าแถว</p>
                     <h3 className="text-xl font-bold text-emerald-800">{currentSummary.present} คน</h3>
                   </div>
                 </CardContent>
@@ -459,7 +459,7 @@ export default function DailyReportPage() {
                   <TableHead className="text-center text-amber-700">สาย (คน)</TableHead>
                   <TableHead className="text-center text-blue-700">ลา (คน)</TableHead>
                   <TableHead className="text-center text-red-700">ขาด (คน)</TableHead>
-                  <TableHead className="text-right">% อัตราการเข้าเรียน</TableHead>
+                  <TableHead className="text-right">% อัตราการเข้าแถว</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -558,10 +558,10 @@ export default function DailyReportPage() {
                 <CardHeader className="border-b border-orange-50">
                   <CardTitle className="text-orange-950 font-bold text-base flex items-center gap-2">
                     <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                    มาเรียน ({studentStatusGroups.present.length} คน)
+                    มาเข้าแถว ({studentStatusGroups.present.length} คน)
                   </CardTitle>
                   <CardDescription className="text-xs font-semibold text-gray-500">
-                    รายชื่อนักเรียนที่มาเรียนในวันที่เลือก
+                    รายชื่อนักเรียนที่มาเข้าแถวในวันที่เลือก
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="p-4">
@@ -624,7 +624,7 @@ export default function DailyReportPage() {
                     ขาด ({studentStatusGroups.absent.length} คน)
                   </CardTitle>
                   <CardDescription className="text-xs font-semibold text-gray-500">
-                    รายชื่อนักเรียนที่ขาดเรียน
+                    รายชื่อนักเรียนที่ขาดเข้าแถว
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="p-4">

@@ -83,10 +83,10 @@ interface StudentAnalytics {
 }
 
 const statusConfig = [
-  { key: "มา", label: "มาเรียน", color: "#10b981" },
+  { key: "มา", label: "มาเข้าแถว", color: "#10b981" },
   { key: "สาย", label: "มาสาย", color: "#f59e0b" },
   { key: "ลา", label: "ลากิจ/ลาป่วย", color: "#3b82f6" },
-  { key: "ขาด", label: "ขาดเรียน", color: "#ef4444" },
+  { key: "ขาด", label: "ขาดเข้าแถว", color: "#ef4444" },
 ] as const;
 
 const RANGE_PRESETS: { value: RangeFilter; label: string; days: number | null }[] = [
@@ -199,7 +199,7 @@ export default function StatisticsPage() {
       } else {
         const attendanceRes = await api.getAttendance(classroomScope);
         if (!attendanceRes.success) {
-          throw new Error("ไม่สามารถดึงสถิติการเข้าเรียนได้");
+          throw new Error("ไม่สามารถดึงสถิติการเข้าแถวได้");
         }
         allAttendance = attendanceRes.attendance || [];
       }
@@ -409,7 +409,7 @@ export default function StatisticsPage() {
         labels: sortedStudentAnalytics.map((item) => `#${item.number}`),
         datasets: [
           {
-            label: "อัตราเข้าเรียน (%)",
+            label: "อัตราเข้าแถว (%)",
             data: sortedStudentAnalytics.map((item) => item.attendanceRate),
             backgroundColor: sortedStudentAnalytics.map((item) =>
               item.attendanceRate >= 80
@@ -430,7 +430,7 @@ export default function StatisticsPage() {
       labels: sortedClassroomSummaries.map((item) => `ห้อง ${item.classroom}`),
       datasets: [
         {
-          label: "อัตราเข้าเรียน (%)",
+          label: "อัตราเข้าแถว (%)",
           data: sortedClassroomSummaries.map((item) => (item.hasData ? item.percentage : 0)),
           backgroundColor: sortedClassroomSummaries.map((item) =>
             item.hasData ? "rgba(249, 115, 22, 0.85)" : "rgba(229, 231, 235, 0.5)"
@@ -535,13 +535,13 @@ export default function StatisticsPage() {
                 const item = sortedStudentAnalytics[index];
                 return item ? `${item.number}. ${item.studentName}` : context[0].label;
               },
-              label: (context: any) => `อัตราเข้าเรียน: ${context.raw}%`,
+              label: (context: any) => `อัตราเข้าแถว: ${context.raw}%`,
             }
             : {
               label: (context: any) => {
                 const index = context.dataIndex;
                 const item = sortedClassroomSummaries[index];
-                return item && item.hasData ? `อัตราเข้าเรียน: ${context.raw}%` : "ยังไม่มีข้อมูลเช็คชื่อ";
+                return item && item.hasData ? `อัตราเข้าแถว: ${context.raw}%` : "ยังไม่มีข้อมูลเช็คชื่อ";
               },
             },
         },
@@ -553,7 +553,7 @@ export default function StatisticsPage() {
     if (scopeIsAll) {
       return [
         {
-          label: "อัตราเข้าเรียนภาพรวม",
+          label: "อัตราเข้าแถวภาพรวม",
           value: `${overallAttendanceRate}%`,
           icon: TrendingUp,
           tone: "orange",
@@ -581,7 +581,7 @@ export default function StatisticsPage() {
 
     return [
       {
-        label: `อัตราเข้าเรียนห้อง ${effectiveClassroom}`,
+        label: `อัตราเข้าแถวห้อง ${effectiveClassroom}`,
         value: `${overallAttendanceRate}%`,
         icon: TrendingUp,
         tone: "orange",
@@ -658,7 +658,7 @@ export default function StatisticsPage() {
           "ลา": item.leave,
           "ขาด": item.absent,
           "รวมวันที่มีข้อมูล": item.total,
-          "% เข้าเรียน": `${item.attendanceRate}%`,
+          "% เข้าแถว": `${item.attendanceRate}%`,
         }));
 
         const wb = XLSX.utils.book_new();
@@ -677,7 +677,7 @@ export default function StatisticsPage() {
           "สาย": item.hasData ? item.late : "-",
           "ลา": item.hasData ? item.leave : "-",
           "ขาด": item.hasData ? item.absent : "-",
-          "% อัตราการเข้าเรียน": item.hasData ? `${item.percentage}%` : "-",
+          "% อัตราการเข้าแถว": item.hasData ? `${item.percentage}%` : "-",
         }));
 
       const wb = XLSX.utils.book_new();
@@ -695,7 +695,7 @@ export default function StatisticsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-orange-950 flex items-center gap-2">
-            <BarChart2 className="h-6 w-6 text-orange-600" /> สถิติและบทวิเคราะห์การเข้าเรียน
+            <BarChart2 className="h-6 w-6 text-orange-600" /> สถิติและบทวิเคราะห์การเข้าแถว
           </h2>
           <p className="text-gray-500 text-xs mt-1">
             {scopeIsAll
@@ -855,7 +855,7 @@ export default function StatisticsPage() {
                 <CardDescription className="text-xs font-semibold text-gray-500">
                   {scopeIsAll
                     ? "ภาพรวมการเช็คชื่อของทุกห้องที่อยู่ในช่วงเวลาที่เลือก"
-                    : `สัดส่วนการเข้าเรียนของ ${classroomLabel(effectiveClassroom)}`}
+                    : `สัดส่วนการเข้าแถวของ ${classroomLabel(effectiveClassroom)}`}
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-6 flex-grow flex flex-col justify-between">
@@ -864,7 +864,7 @@ export default function StatisticsPage() {
                 </div>
                 <div className="mt-4 p-4 bg-orange-50/50 border border-orange-100 rounded-xl text-center">
                   <span className="text-xs font-bold text-gray-500 block">
-                    {scopeIsAll ? "อัตราการเข้าเรียนเฉลี่ยทั้งโรงเรียน" : "อัตราการเข้าเรียนเฉลี่ยของห้องนี้"}
+                    {scopeIsAll ? "อัตราการเข้าแถวเฉลี่ยทั้งโรงเรียน" : "อัตราการเข้าแถวเฉลี่ยของห้องนี้"}
                   </span>
                   <span className="text-3xl font-extrabold text-orange-600 mt-1 block">{overallAttendanceRate}%</span>
                 </div>
@@ -875,12 +875,12 @@ export default function StatisticsPage() {
               <CardHeader className="border-b border-orange-50">
                 <CardTitle className="text-orange-950 font-bold text-base flex items-center gap-2">
                   <BarChart2 className="h-5 w-5 text-orange-600" />
-                  {scopeIsAll ? "เปรียบเทียบอัตราเข้าเรียนรายห้อง" : "เปรียบเทียบอัตราเข้าเรียนรายนักเรียน"}
+                  {scopeIsAll ? "เปรียบเทียบอัตราเข้าแถวรายห้อง" : "เปรียบเทียบอัตราเข้าแถวรายนักเรียน"}
                 </CardTitle>
                 <CardDescription className="text-xs font-semibold text-gray-500">
                   {scopeIsAll
-                    ? "ร้อยละการเข้าเรียนสะสม (มาเรียน + มาสาย) แยกรายห้องเรียน"
-                    : "ร้อยละการเข้าเรียนสะสม (มาเรียน + มาสาย) แยกรายนักเรียนในห้องที่เลือก"}
+                    ? "ร้อยละการเข้าแถวสะสม (มาเข้าแถว + มาสาย) แยกรายห้องเรียน"
+                    : "ร้อยละการเข้าแถวสะสม (มาเข้าแถว + มาสาย) แยกรายนักเรียนในห้องที่เลือก"}
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-6 flex-grow flex flex-col justify-center">
@@ -895,7 +895,7 @@ export default function StatisticsPage() {
                   <span>
                     {scopeIsAll
                       ? "ห้องเรียนที่เป็นแท่งสีเทาหมายความว่าไม่มีประวัติข้อมูลการเช็คชื่อในช่วงเวลาที่ระบุ"
-                      : "สีเขียวหมายถึงอัตราการเข้าเรียนสูง, สีส้มคือระดับเฝ้าระวัง, สีแดงคือกลุ่มเสี่ยง"}
+                      : "สีเขียวหมายถึงอัตราการเข้าแถวสูง, สีส้มคือระดับเฝ้าระวัง, สีแดงคือกลุ่มเสี่ยง"}
                   </span>
                 </div>
               </CardContent>
@@ -925,7 +925,7 @@ export default function StatisticsPage() {
                         <SortHeader label="ลา" sortKey="leave" currentSort={studentSort} onSort={handleStudentSort} className="text-center" />
                         <SortHeader label="ขาด" sortKey="absent" currentSort={studentSort} onSort={handleStudentSort} className="text-center" />
                         <SortHeader label="รวมวัน" sortKey="total" currentSort={studentSort} onSort={handleStudentSort} className="text-center" />
-                        <SortHeader label="% เข้าเรียน" sortKey="attendanceRate" currentSort={studentSort} onSort={handleStudentSort} className="text-right" />
+                        <SortHeader label="% เข้าแถว" sortKey="attendanceRate" currentSort={studentSort} onSort={handleStudentSort} className="text-right" />
                       </tr>
                     </thead>
                     <tbody>
@@ -1003,7 +1003,7 @@ export default function StatisticsPage() {
                         <SortHeader label="สาย" sortKey="late" currentSort={classroomSort} onSort={handleClassroomSort} className="text-center" />
                         <SortHeader label="ลา" sortKey="leave" currentSort={classroomSort} onSort={handleClassroomSort} className="text-center" />
                         <SortHeader label="ขาด" sortKey="absent" currentSort={classroomSort} onSort={handleClassroomSort} className="text-center" />
-                        <SortHeader label="% อัตราการเข้าเรียน" sortKey="percentage" currentSort={classroomSort} onSort={handleClassroomSort} className="text-right" />
+                        <SortHeader label="% อัตราการเข้าแถว" sortKey="percentage" currentSort={classroomSort} onSort={handleClassroomSort} className="text-right" />
                       </tr>
                     </thead>
                     <tbody>

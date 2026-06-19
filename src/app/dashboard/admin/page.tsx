@@ -1332,7 +1332,7 @@ export default function AdminPage() {
 
         {/* Delete All Attendance Dialog */}
         <Dialog isOpen={isDeleteAllAttendanceOpen} onClose={() => setIsDeleteAllAttendanceOpen(false)} title="ยืนยันการลบข้อมูลการเช็กชื่อทั้งหมด" description="การดำเนินการนี้จะลบข้อมูลการเช็กชื่อและการตรวจระเบียบวินัยทั้งหมดจากฐานข้อมูลอย่างถาวร ไม่สามารถกู้คืนได้">
-          <p className="font-semibold text-red-600">คุณแน่ใจหรือไม่ที่จะลบข้อมูลการมาเรียนและการแต่งกายของทุกห้อง?</p>
+          <p className="font-semibold text-red-600">คุณแน่ใจหรือไม่ที่จะลบข้อมูลการมาเข้าแถวและการแต่งกายของทุกห้อง?</p>
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="outline" size="md" onClick={() => setIsDeleteAllAttendanceOpen(false)} className="px-6 py-2.5">ยกเลิก</Button>
             <Button variant="destructive" size="md" onClick={handleClearAllAttendance} loading={loading} className="px-6 py-2.5">ยืนยันการลบข้อมูล</Button>

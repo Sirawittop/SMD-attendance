@@ -45,10 +45,10 @@ function statusBadgeClass(status: string): string {
 
 function statusBadgeLabel(status: string): string {
   switch (status) {
-    case "มา": return "มาเรียน";
+    case "มา": return "มาเข้าแถว";
     case "สาย": return "มาสาย";
     case "ลา": return "ลา";
-    case "ขาด": return "ขาดเรียน";
+    case "ขาด": return "ขาดเข้าแถว";
     default: return status;
   }
 }
@@ -123,7 +123,7 @@ export default function StudentPortalPage() {
       if (filteredAtt.length === 0 && filteredUni.length === 0 && !match) {
         showToast("ไม่พบประวัติของรหัสนี้", "info");
       } else if (filteredAtt.length === 0 && filteredUni.length === 0) {
-        showToast("พบข้อมูลนักเรียน แต่ยังไม่มีประวัติการเข้าเรียนหรือการตรวจระเบียบวินัย", "info");
+        showToast("พบข้อมูลนักเรียน แต่ยังไม่มีประวัติการเข้าแถวหรือการตรวจระเบียบวินัย", "info");
       } else {
         showToast("ค้นหาข้อมูลสำเร็จ", "success");
       }
@@ -184,7 +184,7 @@ export default function StudentPortalPage() {
   };
 
   const chartData = useMemo(() => ({
-    labels: ["มาเรียน", "มาสาย", "ลา", "ขาดเรียน"],
+    labels: ["มาเข้าแถว", "มาสาย", "ลา", "ขาดเข้าแถว"],
     datasets: [{
       data: [stats.present, stats.late, stats.leave, stats.absent],
       backgroundColor: ["#10b981", "#f59e0b", "#3b82f6", "#ef4444"],
@@ -339,7 +339,7 @@ export default function StudentPortalPage() {
               <div className="bg-white border border-slate-100 rounded-2xl p-6 sm:p-8 shadow-sm">
                 <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
                   <CheckCircle2 className="h-4 w-4 text-orange-500" />
-                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">สัดส่วนการมาเรียน</h3>
+                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">สัดส่วนการมาเข้าแถว</h3>
                 </div>
                 <div className="flex flex-col items-center gap-6">
                   <div className="relative h-44 w-44">
@@ -360,14 +360,14 @@ export default function StudentPortalPage() {
                     {stats.total > 0 && (
                       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                         <span className="text-2xl font-bold text-slate-900">{stats.rate}%</span>
-                        <span className="text-[11px] font-medium text-slate-500">มาเรียน</span>
+                        <span className="text-[11px] font-medium text-slate-500">มาเข้าแถว</span>
                       </div>
                     )}
                   </div>
                   <div className="w-full grid grid-cols-2 gap-2">
                     <div className="flex items-center gap-2 text-sm">
                       <span className="w-2.5 h-2.5 rounded-full bg-[#10b981] shrink-0" />
-                      <span className="text-slate-600">มาเรียน</span>
+                      <span className="text-slate-600">มาเข้าแถว</span>
                       <span className="ml-auto font-semibold text-slate-900">{stats.present}</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
@@ -398,7 +398,7 @@ export default function StudentPortalPage() {
                 <div className="bg-white border border-slate-100 rounded-2xl p-6 sm:p-8 shadow-sm">
                   <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
                     <Calendar className="h-4 w-4 text-orange-500" />
-                    <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">ปฏิทินการเข้าเรียน</h3>
+                    <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">ปฏิทินการเข้าแถว</h3>
                   </div>
                   <div className="flex flex-col md:flex-row gap-6">
                     <div className="flex-1 flex justify-center custom-calendar-wrapper">
@@ -420,7 +420,7 @@ export default function StudentPortalPage() {
 
                           {/* Attendance Info */}
                           <div>
-                            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">การเข้าเรียน</p>
+                            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">การเข้าแถว</p>
                             {selectedDayInfo.attendance.length > 0 ? (
                               <div className="flex flex-wrap gap-1.5">
                                 {selectedDayInfo.attendance.map((a, i) => (
@@ -492,7 +492,7 @@ export default function StudentPortalPage() {
                         </div>
                         <div>
                           <div className={`text-lg font-semibold ${getRateColor(uniformStats.uniformRate)}`}>{uniformStats.uniformRate}%</div>
-                          <div className="text-xs font-medium text-slate-500">ระเบียบวินัย</div>
+                          <div className="text-xs font-medium text-slate-500">การแต่งกาย</div>
                         </div>
                       </div>
                       <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">

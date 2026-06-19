@@ -103,7 +103,7 @@ export default function LoginPage() {
             className="w-full h-12 border-gray-200 hover:bg-gray-50 text-gray-700 font-medium flex items-center justify-center gap-2 transition-colors duration-300"
           >
             <GraduationCap className="h-5 w-5 text-gray-400" />
-            <span>ตรวจสอบสถิติการมาเรียนสำหรับนักเรียน</span>
+            <span>ตรวจสอบสถิติการเข้าแถวสำหรับนักเรียน</span>
           </Button>
         </CardContent>
       </Card>
