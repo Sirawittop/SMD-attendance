@@ -168,7 +168,7 @@ export default function StatisticsPage() {
 
   const isAdmin = session.role === "admin";
   const scopeIsAll = selectedClassroom === ALL_CLASSROOMS_VALUE;
-  const effectiveClassroom = isAdmin ? selectedClassroom : session.classroomLock || "2/1";
+  const effectiveClassroom = selectedClassroom;
 
   // Load late penalty settings
   useEffect(() => {
@@ -187,15 +187,22 @@ export default function StatisticsPage() {
       return;
     }
 
-    if (session.classroomLock) {
-      setSelectedClassroom(session.classroomLock);
+    // Teacher defaults to own classroom but can change freely
+    if (session.classroomLock && selectedClassroom === (session.classroomLock || "")) {
+      // already set, no-op
+    } else if (session.classroomLock) {
+      // Only set initial value if not already set to something else
+      setSelectedClassroom((prev) => {
+        if (prev === "__all__" || prev === session.classroomLock) return prev;
+        return session.classroomLock || prev;
+      });
     }
   }, [session.role, session.classroomLock]);
 
   const loadStats = useCallback(async () => {
     setLoading(true);
     try {
-      const classroomScope = isAdmin ? selectedClassroom : effectiveClassroom;
+      const classroomScope = selectedClassroom;
       const scopeIsAll = classroomScope === ALL_CLASSROOMS_VALUE;
 
       let allAttendance: AttendanceRecord[] = [];
@@ -232,7 +239,7 @@ export default function StatisticsPage() {
     } finally {
       setLoading(false);
     }
-  }, [effectiveClassroom, isAdmin, selectedClassroom, showToast]);
+  }, [selectedClassroom, showToast]);
 
   useEffect(() => {
     loadStats();
@@ -738,8 +745,8 @@ export default function StatisticsPage() {
               label="ห้องเรียน"
               value={selectedClassroom}
               onChange={(e) => setSelectedClassroom(e.target.value)}
-              disabled={!isAdmin}
-              options={isAdmin ? classroomOptions(true) : classroomOptions(false)}
+              disabled={false}
+              options={classroomOptions(true)}
             />
           </div>
 

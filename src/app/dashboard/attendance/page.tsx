@@ -39,9 +39,13 @@ export default function AttendancePage() {
     return `${year}-${month}-${day}`;
   };
 
-  const myClassroom = session.classroomLock || "2/1";
-
-  const [selectedClassroom, setSelectedClassroom] = useState<string>(myClassroom);
+  const [selectedClassroom, setSelectedClassroom] = useState<string>(() => {
+    // Teacher can only view their own classroom; admin can select any
+    if (session.role !== "admin" && session.classroomLock) {
+      return session.classroomLock;
+    }
+    return session.classroomLock || "2/1";
+  });
 
   // Default date is local today
   const [selectedDate, setSelectedDate] = useState<string>(() => getTodayDate());
@@ -53,8 +57,16 @@ export default function AttendancePage() {
   const [originalStatuses, setOriginalStatuses] = useState<Map<string, "มา" | "สาย" | "ลา" | "ขาด" | null>>(new Map());
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingChanges, setPendingChanges] = useState<StatusChange[]>([]);
+  const isAdmin = session.role === "admin";
   const isTeacher = session.role === "teacher";
   const activeClassroom = selectedClassroom;
+
+  // Lock classroom to teacher's own room (unless admin)
+  useEffect(() => {
+    if (!isAdmin && session.classroomLock) {
+      setSelectedClassroom(session.classroomLock);
+    }
+  }, [isAdmin, session.classroomLock]);
 
   const todayDate = useMemo(() => getTodayDate(), []);
 
@@ -352,6 +364,7 @@ export default function AttendancePage() {
                 value={selectedClassroom}
                 onChange={(e) => setSelectedClassroom(e.target.value)}
                 options={classroomOptions(false)}
+                disabled={!isAdmin}
               />
             </div>
 
