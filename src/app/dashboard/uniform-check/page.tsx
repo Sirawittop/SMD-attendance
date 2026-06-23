@@ -110,7 +110,30 @@ export default function UniformCheckPage() {
     loadData();
   }, [selectedClassroom, selectedDate, loadData]);
 
-  // Empty out the useEffect that was here for tab switching
+  // Prevent pull-to-refresh on mobile (Android Chrome)
+  useEffect(() => {
+    let startY = 0;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      startY = e.touches[0].clientY;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      const deltaY = e.touches[0].clientY - startY;
+      // Only prevent when at the top and pulling DOWN (pull-to-refresh gesture)
+      if (window.scrollY === 0 && deltaY > 0) {
+        e.preventDefault();
+      }
+    };
+
+    document.addEventListener('touchstart', handleTouchStart, { passive: true });
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+
+    return () => {
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, []);
 
   const updateStudent = (studentId: string, field: keyof UniformCheckRecord, value: any) => {
     setStudents(prev => prev.map(s => s.studentId === studentId ? { ...s, [field]: value } : s));
@@ -153,7 +176,7 @@ export default function UniformCheckPage() {
   };
 
   return (
-    <div className="space-y-6 font-sans">
+    <div className="space-y-6 font-sans" style={{ overscrollBehaviorY: 'contain' }}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
