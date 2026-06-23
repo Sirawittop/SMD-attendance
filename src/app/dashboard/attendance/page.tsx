@@ -186,14 +186,27 @@ export default function AttendancePage() {
     };
   }, []);
 
-  // Update status for a specific student
+  // Update status for a specific student (toggle off if same button is clicked)
   const handleStatusChange = (studentId: string, status: "มา" | "สาย" | "ลา" | "ขาด") => {
     setStudents((prev) =>
-      prev.map((s) => (s.studentId === studentId ? { ...s, status } : s))
+      prev.map((s) => {
+        if (s.studentId === studentId) {
+          // Toggle: clicking the same status clears it (sets to null)
+          return { ...s, status: s.status === status ? null : status };
+        }
+        return s;
+      })
     );
     setCheckedStudentIds((prev) => {
       const next = new Set(prev);
-      next.add(studentId);
+      // Check current student's status before the toggle
+      const currentStudent = students.find(s => s.studentId === studentId);
+      if (currentStudent && currentStudent.status === status) {
+        // Toggling off → remove from checked set
+        next.delete(studentId);
+      } else {
+        next.add(studentId);
+      }
       return next;
     });
   };
